@@ -38,40 +38,40 @@ if (command === 'list') {
     process.exit(0);
   }
 
-  const verbose = args.includes('--verbose') || args.includes('-v');
+  // Color follows the NO_COLOR / FORCE_COLOR conventions, then falls back to TTY
+  // detection (so piped/captured output stays plain).
+  const color = !process.env.NO_COLOR && (process.env.FORCE_COLOR ? true : !!process.stdout.isTTY);
+  const bold = (s) => (color ? `\x1b[1;36m${s}\x1b[0m` : s); // bold cyan (team names)
+  const dim = (s) => (color ? `\x1b[2m${s}\x1b[0m` : s); // dim (secondary text)
 
-  if (verbose) {
-    // Full view: name, complete description, tags — one block per team.
+  const details = args.includes('--details') || args.includes('-d');
+
+  if (details) {
+    // Full view: name + complete description + tags, one block per team.
     console.log('Available teams:\n');
     for (const t of teams) {
-      console.log(`  ${t.name}${t.requiresAgentTeams ? '  [requires agent teams]' : ''}`);
+      console.log(`  ${bold(t.name)}`);
       console.log(`    ${t.description}`);
       if (t.tags.length > 0) {
-        console.log(`    tags: ${t.tags.join(', ')}`);
+        console.log(`    ${dim('tags:')} ${dim(t.tags.join(', '))}`);
       }
       console.log();
     }
-    console.log('Apply one with:  ccteams use <team>');
+    console.log(dim('  Apply: ccteams use <team>    Optional: add --agent-teams to run members in parallel.'));
     process.exit(0);
   }
 
   // Compact view (default): name (bold cyan) + a short one-line summary. One row
-  // per team, no wrapping, so the list stays scannable. `--verbose` shows the full
+  // per team, no wrapping, so the list stays scannable. `--details` shows the full
   // descriptions and tags.
-  // Color follows the NO_COLOR / FORCE_COLOR conventions, then falls back to TTY
-  // detection (so piped/captured output stays plain).
-  const color = !process.env.NO_COLOR && (process.env.FORCE_COLOR ? true : !!process.stdout.isTTY);
-  const bold = (s) => (color ? `\x1b[1;36m${s}\x1b[0m` : s); // bold cyan
-  const dim = (s) => (color ? `\x1b[2m${s}\x1b[0m` : s);
-
   const nameWidth = Math.max(...teams.map((t) => t.name.length));
 
   console.log('Available teams:\n');
   for (const t of teams) {
-    const tag = t.requiresAgentTeams ? dim(' *') : '';
-    console.log(`  ${bold(t.name.padEnd(nameWidth))}  ${t.summary}${tag}`);
+    console.log(`  ${bold(t.name.padEnd(nameWidth))}  ${t.summary}`);
   }
-  console.log(dim('\n  * needs agent-teams mode    Details: ccteams list --verbose    Apply: ccteams use <team>'));
+  console.log(dim('\n  Apply: ccteams use <team>    Full details: ccteams list --details'));
+  console.log(dim('  Optional: add --agent-teams to run a team’s members in parallel.'));
   process.exit(0);
 }
 
@@ -117,7 +117,7 @@ ccteams — Claude Code agent-team package manager
 
 Usage:
   ccteams list                        List all available teams (compact)
-  ccteams list --verbose              List teams with full descriptions and tags
+  ccteams list --details              List teams with full descriptions and tags
   ccteams list --json                 Machine-readable JSON list (for scripts/slash commands)
   ccteams use <team>                  Apply a team to the current project
   ccteams use <team> --agent-teams    Apply a team AND enable agent-teams mode

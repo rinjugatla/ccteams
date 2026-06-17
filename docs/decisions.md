@@ -11,6 +11,11 @@
   that color looked "missing" only because the Claude Code `!` bang-command captures
   stdout as a pipe (not a TTY) — correct behavior; `FORCE_COLOR=1` shows it anyway.
 - Help text gained an "Agent teams mode" explainer (orchestrated vs. --agent-teams).
+- Reframed agent-teams as an OPTIONAL add-on for ANY team (user's call): dropped the
+  `*`/"needs agent-teams mode" marker from `list` (it implied some teams require it).
+  Footer now states agent-teams is optional (`--agent-teams`). requiresAgentTeams stays in
+  the format but isn't surfaced. Renamed `list --verbose` → `list --details`, styled the
+  details view with color (bold cyan names, dim tags).
 
 
 ## 2026-06-17 — Phase 0 verified: subagent + CLAUDE.md load mechanism works
