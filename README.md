@@ -36,6 +36,21 @@ In Claude Code, run:
 
 Or restart Claude Code. The slash commands `/ccteams:list-teams`, `/ccteams:use-team`, and `/ccteams:choose-team` will then be available.
 
+## Updating
+
+```bash
+# CLI (new commands, new bundled teams)
+npm install -g ccteams@latest
+
+# Plugin (new or changed slash commands)
+/plugin marketplace update ccteams   # re-pull the latest from the repo
+/reload-plugins                       # or restart Claude Code
+```
+
+A full uninstall/reinstall is **not** needed. New slash commands reach users when the
+plugin's `version` is bumped (the plugin is versioned via `plugin.json`); a marketplace
+update followed by `/reload-plugins` picks them up.
+
 ## Usage
 
 ### Command Line (CLI)
