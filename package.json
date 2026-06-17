@@ -1,7 +1,7 @@
 {
   "name": "ccteams",
   "version": "0.1.0",
-  "description": "Claude Code agent-team package manager — like nvm, but for agent teams",
+  "description": "Apply and switch pre-built teams of Claude Code subagents from the command line",
   "type": "module",
   "repository": {
     "type": "git",
