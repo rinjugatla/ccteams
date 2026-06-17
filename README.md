@@ -6,9 +6,9 @@ Apply a pre-built team of Claude Code subagents to your project with one command
 
 Use ccteams from the terminal, from inside Claude Code, or both — whichever fits your flow.
 
-https://github.com/user-attachments/assets/d6c89e7f-3945-484f-95a5-c69eb73cf035
+![ccteams from the command line](assets/cli-demo.gif)
 
-https://github.com/user-attachments/assets/ff71a9cf-a981-440b-8c35-c783dd559ad1
+![ccteams from inside Claude Code](assets/plugin-demo.gif)
 
 ```bash
 ccteams list                 # see the teams
