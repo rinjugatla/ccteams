@@ -1,6 +1,0 @@
-{
-  "name": "design-council",
-  "description": "A three-member panel that debates architecture and design decisions from complementary viewpoints (pragmatist, skeptic, maintainer), then converges on a joint recommendation.",
-  "tags": ["design", "architecture", "review", "collaborative", "decision"],
-  "requiresAgentTeams": true
-}

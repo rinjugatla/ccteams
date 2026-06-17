@@ -1,0 +1,5 @@
+{
+  "name": "next-ts",
+  "description": "Next.js (App Router) + TypeScript + Tailwind team. Builds and reviews React Server Components, Server Actions, type-safe data fetching, and accessible UI. Use for projects using Next.js 14+ with the app/ directory.",
+  "tags": ["nextjs", "next", "react", "typescript", "tailwind", "app-router", "rsc", "server-actions", "frontend", "fullstack"]
+}

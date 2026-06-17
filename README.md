@@ -55,6 +55,31 @@ ccpm use <team-name>   # Apply a team to the current directory
 /ccpm:choose-team <natural-language> # Find and apply a team by description ("for backend work", "frontend-focused", etc.)
 ```
 
+## Available teams
+
+ccpm ships with these teams out of the box. Each is a builder + reviewer pair (except `research`, which is a single read-only researcher).
+
+| Team | What it's for |
+|------|---------------|
+| `generalist` | Stack-agnostic, end-to-end feature team: scope → design → build → QA → ship. Use when no stack-specific team fits or for general cross-stack work. |
+| `next-ts` | Next.js (App Router) + TypeScript + Tailwind — RSC, Server Actions, type-safe data fetching, accessible UI. |
+| `frontend` | Framework-agnostic UI/UX and accessibility — UI work that isn't Next.js-specific, or focused on a11y/responsive/UX quality. |
+| `go-api` | Go HTTP API backend — idiomatic services with `net/http` and `database/sql`. |
+| `python-fastapi` | Python FastAPI + Pydantic v2 — async HTTP APIs with full type coverage and validation. |
+| `rails` | Ruby on Rails — ActiveRecord, convention-over-configuration, the full Rails stack. |
+| `debug` | Stack-agnostic bug hunting — reproduce → root-cause → minimal fix → regression test. |
+| `research` | Stack-agnostic technical research — compare options and produce a written recommendation. Writes no code. |
+
+Run `ccpm list` for the full descriptions and tags, or `/ccpm:choose-team <what you need>` to let Claude pick one for you.
+
+## One team per session (and monorepos)
+
+ccpm applies **one team per project at a time**. `ccpm use <team>` is an exclusive switch — like `nvm` switching Node versions — and applying a new team cleanly replaces the previous one.
+
+This is partly a Claude Code constraint: subagents in `.claude/agents/` are **global to the project** and cannot be scoped to a subdirectory. You can't, for example, have the `next-ts` team active only in `apps/web/` and `go-api` only in `apps/api/` at the same time with isolation.
+
+**Monorepo workaround:** pick the team that matches the area you're actively working on. Claude Code loads `CLAUDE.md` files along the path to the files you're editing, so launching `claude` from the subdirectory you're working in gives you that subtree's `CLAUDE.md` context — but the applied team's agents themselves remain available repo-wide.
+
 ## ⚠️ IMPORTANT: Session restart required
 
 After running `ccpm use`, `/ccpm:use-team`, or `/ccpm:choose-team`, **you must restart Claude Code** for the new agent team to load. The agents are instantiated at session start, not mid-session.
@@ -126,13 +151,13 @@ You are a Python backend expert. Your job is to...
 
 The `description` is what Claude uses to decide when to delegate to this agent, so make it specific. Omit `tools` to inherit all available tools.
 
-See `teams/frontend/agents/` and `teams/design-council/agents/` for examples.
+For examples to copy from, see `teams/next-ts/` (a stack-specific team) and `teams/debug/` (a stack-agnostic team). `next-ts/` is the cleanest reference for the builder + reviewer shape.
 
-### Two team patterns
+### Orchestrated vs. collaborative teams
 
-**Orchestrated teams** (e.g., `frontend`) — one lead agent (often named after the team) that directs the flow and summons specialized subagents. Stateless and predictable.
+All teams that ship today are **orchestrated**: one lead delegates to specialized subagents that report back independently. This is the simple, predictable default.
 
-**Collaborative teams** (e.g., `design-council`) — agents message each other, vote, and iterate together. Richer but requires the experimental agent-teams feature (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), which ccpm enables automatically.
+ccpm also supports **collaborative** teams — where subagents message each other directly — via `"requiresAgentTeams": true` in `team.json`. That relies on Claude Code's experimental agent-teams feature (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), which ccpm sets automatically in `.claude/settings.json` when you apply such a team. No collaborative team ships by default, but the format supports authoring one.
 
 ## Development / local testing
 
@@ -155,4 +180,4 @@ Installs the CLI from the repo's current source.
 
 ## License
 
-MIT
+MIT © toffyui. See [LICENSE](./LICENSE) for the full text.

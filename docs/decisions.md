@@ -13,6 +13,57 @@
 - CLI distributed via Node/npm (`npx ccpm`). Rationale: Claude Code users almost
   always have Node; best affinity with the plugin layer (JS/JSON); zero-install via npx.
 
+## 2026-06-17 — Agent-teams opt-in flag, SendMessage clarified, generalist team, OSS license
+
+- CONFIRMED via official docs (agent-teams.md): "Team coordination tools such as SendMessage
+  and the task management tools are always available to a teammate even when `tools` restricts
+  other tools." → SendMessage must NEVER be listed in an agent's `tools:`; it's auto-provided
+  when agent teams are enabled. This corrected an earlier (wrong) plan to add it explicitly.
+- Also confirmed: enabling the flag does NOT force team mode — Claude only spawns teammates on
+  user request. So enabling it is safe/opt-in by nature.
+- Added `ccpm use <team> --agent-teams` (position-agnostic) so ANY team can opt into agent-teams
+  mode, not just teams declaring requiresAgentTeams. Ownership semantics unchanged. Artemis: SHIP.
+- Language behavior: ccpm doesn't touch Claude's language logic — replies follow the user's
+  language as normal. Team prompts are written in English (instructions to Claude), which does
+  not constrain the user-facing reply language; no "always reply in user's language" line added.
+- Added `generalist` team (stack-agnostic, 5 roles: scope-planner / architect / builder /
+  qa-reviewer / shipper; renamed from dev-team at user's request). Artemis: SHIP. shipper gained
+  Write (for creating new CHANGELOG/release files), per an Artemis observation.
+- OSS: added MIT LICENSE (© toffyui, 2026); README License section points to it.
+- Fixed a stale `design-council` reference in the CLI help text (found by /code-review).
+
+## 2026-06-17 — Monorepo / multi-team: confirmed not possible, documented as a limitation
+
+- Question: can a monorepo run a frontend team in apps/web and a backend team in apps/api at once?
+- Confirmed via official docs: subagents in `.claude/agents/` are GLOBAL to the project and
+  CANNOT be scoped to a subdirectory; nested `.claude/agents/` is not loaded. Only CLAUDE.md is
+  path-scoped. So directory-isolated teams are impossible in Claude Code, independent of ccpm.
+- DECISION: do nothing now. README documents "one team per session" + the monorepo workaround
+  (launch `claude` from the working subdirectory for its path-scoped CLAUDE.md). Future options
+  (composite team / multi-team compose) parked in docs/backlog.md.
+- Also refreshed README: 7-team roster table, removed all design-council references, reframed the
+  orchestrated-vs-collaborative section (no collaborative team ships by default; format supports it).
+
+## 2026-06-17 — Replaced toy sample teams with production-grade, stack-specific teams
+
+- Insight (from the user): "fullstack" is too low-resolution — a React expert is not an
+  Angular expert. Since teams are DISTRIBUTED, the right design is stack-specific teams a
+  user picks via `ccpm use`, not one vague fullstack team.
+- Final roster (7 teams): stack-specific — next-ts, go-api, python-fastapi, rails;
+  stack-agnostic — debug, research, and frontend (repurposed as framework-agnostic UI/UX/a11y).
+- Deleted the collaborative `design-council` sample (experimental-flag dependent, low daily use).
+- Quality bar set by a hand-written reference team (next-ts): precise descriptions, explicit
+  triggers, necessary tools, concrete & correct stack conventions, runnable verify steps,
+  `file:line — problem — fix` reviewer format. No toy "I am loaded" lines, no filler persona.
+- Artemis reviewed for TECHNICAL CORRECTNESS and caught real bugs, all fixed:
+  - fastapi: sync `get_db()` example in an async-mandated team (would block the event loop) →
+    rewritten to AsyncSession; "every handler async" over-rule relaxed.
+  - frontend: 44×44 touch target mislabeled as WCAG AA (it's AAA; AA SC 2.5.8 is 24×24);
+    broken `eslint --plugin` CLI command → `npx eslint .`.
+  - rails: rubocop `--autocorrect-all` auto-apply → report-only.
+  - go-api: added the WriteHeader silent-200 trap note.
+  - frontend agent files renamed to match their `name:` (ui-builder.md, ux-reviewer.md).
+
 ## 2026-06-17 — Phase 3: marketplace + README (shipping artifacts)
 
 - CONFIRMED via docs: npm publish and Claude Code plugin install are INDEPENDENT. There is

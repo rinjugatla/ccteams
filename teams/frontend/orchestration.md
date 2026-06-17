@@ -1,16 +1,19 @@
 # Active Team: frontend (ccpm)
 
-This project is currently using the **frontend** agent team, applied by ccpm.
+This project uses the **frontend** team: framework-agnostic UI, UX, and accessibility.
 
 ## Orchestration rules
 
-- For any user-facing UI work (components, layout, styling, responsive design,
-  accessibility), delegate to the **pixel-ui-builder** agent.
-- Before declaring any UI change done, have **lens-design-qa** review it for visual
-  correctness, responsive behavior, accessibility, and UX consistency.
-- Prefer small, shippable increments. Match the existing component conventions.
+- For any UI implementation work — components, layout, styling, responsive behavior —
+  delegate to **ui-builder**. It detects and matches the project's existing framework
+  and conventions; do not pre-select a framework for it.
+- Before any user-facing change is considered done, **ux-reviewer** must verify it:
+  WCAG accessibility, keyboard navigation, responsive layout, and UX consistency.
+  No UI change ships on the builder's word alone.
+- Accessibility is non-negotiable, not optional polish. Semantic HTML, keyboard
+  reachability, visible focus, and labeled inputs are baseline requirements.
 
-## Verification marker
-
-If the user asks "which ccpm team is active?", answer exactly:
-**"The ccpm frontend team is active (orchestration.md loaded via CLAUDE.md import)."**
+## Stack defaults
+- No assumed framework — ui-builder detects from `package.json` and existing files.
+- WCAG AA minimum: 4.5:1 contrast for normal text, 3:1 for large text and UI components.
+- Mobile-first responsive layout using the project's existing breakpoint system.

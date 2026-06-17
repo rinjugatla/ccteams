@@ -64,13 +64,19 @@ if (command === 'current') {
 
 // ── use ──────────────────────────────────────────────────────────────────────
 if (command === 'use') {
-  const teamName = args[1];
+  // Parse position-agnostic: strip --agent-teams from the args list, whatever
+  // position it appears in, then take the first remaining non-flag word as the
+  // team name.
+  const agentTeamsFlag = args.includes('--agent-teams');
+  const useArgs = args.slice(1).filter((a) => a !== '--agent-teams');
+  const teamName = useArgs[0];
+
   if (!teamName) {
-    console.error('Usage: ccpm use <team-name>');
+    console.error('Usage: ccpm use [--agent-teams] <team-name>');
     process.exit(1);
   }
 
-  const result = useTeam(teamName);
+  const result = useTeam(teamName, process.cwd(), { agentTeams: agentTeamsFlag });
   if (!result.success) {
     console.error(`Error: ${result.message}`);
     process.exit(1);
@@ -84,14 +90,22 @@ const usageText = `
 ccpm — Claude Code agent-team package manager
 
 Usage:
-  ccpm list              List all available teams
-  ccpm list --json       Machine-readable JSON list (for scripts/slash commands)
-  ccpm use <team>        Apply a team to the current project
-  ccpm current           Show the currently-applied team
+  ccpm list                        List all available teams
+  ccpm list --json                 Machine-readable JSON list (for scripts/slash commands)
+  ccpm use <team>                  Apply a team to the current project
+  ccpm use <team> --agent-teams    Apply a team AND enable Claude Code agent-teams mode
+  ccpm current                     Show the currently-applied team
+
+Flags:
+  --agent-teams   Enable CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in .claude/settings.json
+                  for the applied team. Position-agnostic: works before or after <team>.
+                  Teams that declare "requiresAgentTeams" set this automatically.
 
 Examples:
   ccpm list
   ccpm use frontend
+  ccpm use go-api --agent-teams
+  ccpm use --agent-teams rails
   ccpm current
 `.trimStart();
 

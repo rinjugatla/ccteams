@@ -1,5 +1,5 @@
 {
   "name": "frontend",
-  "description": "Frontend-focused team for building and polishing user-facing web UIs (React/Vue/Svelte), UX flows, styling, accessibility, and design QA.",
-  "tags": ["frontend", "ui", "ux", "react", "css", "accessibility", "design", "web"]
+  "description": "Framework-agnostic UI/UX and accessibility team. Builds and reviews user-facing web UI regardless of component framework (React, Vue, Svelte, plain HTML). Use for UI work when the project is not Next.js-specific, or when the focus is accessibility, responsive layout, and UX quality rather than a specific stack.",
+  "tags": ["frontend", "ui", "ux", "accessibility", "wcag", "a11y", "responsive", "html", "css", "web"]
 }
