@@ -37,15 +37,36 @@ if (command === 'list') {
     process.exit(0);
   }
 
+  const verbose = args.includes('--verbose') || args.includes('-v');
+
+  if (verbose) {
+    // Full view: name, complete description, tags — one block per team.
+    console.log('Available teams:\n');
+    for (const t of teams) {
+      console.log(`  ${t.name}${t.requiresAgentTeams ? '  [requires agent teams]' : ''}`);
+      console.log(`    ${t.description}`);
+      if (t.tags.length > 0) {
+        console.log(`    tags: ${t.tags.join(', ')}`);
+      }
+      console.log();
+    }
+    console.log('Apply one with:  ccteams use <team>');
+    process.exit(0);
+  }
+
+  // Compact view (default): one aligned line per team — name + first sentence.
+  // Keeps the list scannable; `--verbose` shows full descriptions and tags.
+  const width = Math.max(...teams.map((t) => t.name.length));
+  const firstSentence = (s) => {
+    const m = s.match(/^.*?[.。](\s|$)/);
+    return (m ? m[0] : s).trim();
+  };
   console.log('Available teams:\n');
   for (const t of teams) {
-    console.log(`  ${t.name}${t.requiresAgentTeams ? '  [requires agent teams]' : ''}`);
-    console.log(`    ${t.description}`);
-    if (t.tags.length > 0) {
-      console.log(`    tags: ${t.tags.join(', ')}`);
-    }
-    console.log();
+    const tag = t.requiresAgentTeams ? ' *' : '';
+    console.log(`  ${t.name.padEnd(width)}  ${firstSentence(t.description)}${tag}`);
   }
+  console.log('\n  * needs agent-teams mode    Details: ccteams list --verbose    Apply: ccteams use <team>');
   process.exit(0);
 }
 
@@ -90,16 +111,24 @@ const usageText = `
 ccteams — Claude Code agent-team package manager
 
 Usage:
-  ccteams list                        List all available teams
+  ccteams list                        List all available teams (compact)
+  ccteams list --verbose              List teams with full descriptions and tags
   ccteams list --json                 Machine-readable JSON list (for scripts/slash commands)
   ccteams use <team>                  Apply a team to the current project
-  ccteams use <team> --agent-teams    Apply a team AND enable Claude Code agent-teams mode
+  ccteams use <team> --agent-teams    Apply a team AND enable agent-teams mode
   ccteams current                     Show the currently-applied team
 
 Flags:
   --agent-teams   Enable CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in .claude/settings.json
                   for the applied team. Position-agnostic: works before or after <team>.
                   Teams that declare "requiresAgentTeams" set this automatically.
+
+Agent teams mode:
+  By default a team is orchestrated: one lead delegates to members one at a time,
+  and they report back. With --agent-teams, members become parallel teammates that
+  run at once and message each other directly — better for big, splittable work.
+  It uses Claude Code's experimental agent-teams feature and takes effect after you
+  restart the session.
 
 Examples:
   ccteams list
