@@ -54,19 +54,49 @@ if (command === 'list') {
     process.exit(0);
   }
 
-  // Compact view (default): one aligned line per team — name + first sentence.
-  // Keeps the list scannable; `--verbose` shows full descriptions and tags.
-  const width = Math.max(...teams.map((t) => t.name.length));
+  // Compact view (default): name (bold cyan on a TTY) + the first sentence of the
+  // description, word-wrapped to a readable width with wrapped lines indented under
+  // the description column so they never collide with the name column.
+  // `--verbose` shows full descriptions and tags.
+  const color = process.stdout.isTTY;
+  const bold = (s) => (color ? `\x1b[1;36m${s}\x1b[0m` : s); // bold cyan
+  const dim = (s) => (color ? `\x1b[2m${s}\x1b[0m` : s);
+
+  const nameWidth = Math.max(...teams.map((t) => t.name.length));
+  const indent = 2 + nameWidth + 2; // leading "  " + name column + gap
+  const wrapAt = 76; // total line width target for the description column
+
   const firstSentence = (s) => {
     const m = s.match(/^.*?[.。](\s|$)/);
     return (m ? m[0] : s).trim();
   };
+  const wrap = (text, avail) => {
+    const words = text.split(/\s+/);
+    const lines = [];
+    let line = '';
+    for (const w of words) {
+      if (line && (line + ' ' + w).length > avail) {
+        lines.push(line);
+        line = w;
+      } else {
+        line = line ? line + ' ' + w : w;
+      }
+    }
+    if (line) lines.push(line);
+    return lines;
+  };
+
   console.log('Available teams:\n');
   for (const t of teams) {
-    const tag = t.requiresAgentTeams ? ' *' : '';
-    console.log(`  ${t.name.padEnd(width)}  ${firstSentence(t.description)}${tag}`);
+    const desc = firstSentence(t.description);
+    const tag = t.requiresAgentTeams ? dim(' *') : '';
+    const lines = wrap(desc, Math.max(20, wrapAt - indent));
+    console.log(`  ${bold(t.name.padEnd(nameWidth))}  ${lines[0]}${lines.length === 1 ? tag : ''}`);
+    for (let i = 1; i < lines.length; i++) {
+      console.log(`${' '.repeat(indent)}${lines[i]}${i === lines.length - 1 ? tag : ''}`);
+    }
   }
-  console.log('\n  * needs agent-teams mode    Details: ccteams list --verbose    Apply: ccteams use <team>');
+  console.log(dim('\n  * needs agent-teams mode    Details: ccteams list --verbose    Apply: ccteams use <team>'));
   process.exit(0);
 }
 
