@@ -1,0 +1,6 @@
+{
+  "name": "react-native",
+  "summary": "Expo + React Native apps, native decisions handled for you",
+  "description": "Expo + React Native (TypeScript) team. Builds and reviews mobile app screens, navigation, and data fetching, while a dedicated advisor handles native-leaning decisions and explains them in plain language — Expo managed vs dev build, config plugins, native module selection, EAS Build/Submit, and store configuration. Use for any mobile app built with React Native + Expo. Explicitly for mobile/Expo work — NOT next-ts, which is web.",
+  "tags": ["react-native", "expo", "mobile", "ios", "android", "typescript", "expo-router", "eas", "app"]
+}
