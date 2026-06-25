@@ -6,17 +6,17 @@
  *   list [--json]   List available teams
  *   use <team>      Apply a team to the current project
  *   current         Show the currently-applied team
+ *   upgrade         Upgrade ccteams to the latest version via npm
  */
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 import { listTeams } from '../lib/teams.js';
 import { readManifest } from '../lib/manifest.js';
 import { useTeam } from '../lib/use.js';
-
-const args = process.argv.slice(2);
-const command = args[0];
+import { maybeNotifyFromCache, refreshCacheInBackground } from '../lib/update-check.js';
 
 // Read the version from package.json (single source of truth), resolved relative
 // to this file so it works regardless of where ccteams is installed.
@@ -29,9 +29,39 @@ function getVersion() {
   }
 }
 
+const args = process.argv.slice(2);
+const command = args[0];
+
+// Determine whether to show update notifications for this invocation.
+// Suppressed when: CI env, NO_UPDATE_NOTIFIER env, non-TTY stdout, --version, list --json.
+const isJsonList = command === 'list' && args.includes('--json');
+const isVersionCmd = command === '--version' || command === '-V' || command === 'version';
+const suppressNotifier =
+  !!process.env.NO_UPDATE_NOTIFIER ||
+  !!process.env.CI ||
+  !process.stdout.isTTY ||
+  isVersionCmd ||
+  isJsonList;
+
+const currentVersion = getVersion();
+
+// Fire-and-forget: fetch the registry in the background so the cache is warm for the
+// next run. We never await this — it must not block or race with process.exit().
+if (!suppressNotifier) {
+  refreshCacheInBackground(currentVersion);
+}
+
+/**
+ * Print a one-line update notice from the cache (synchronous, no network).
+ * Call this right before every process.exit() on non-suppressed paths.
+ */
+function notifyIfUpdate() {
+  if (!suppressNotifier) maybeNotifyFromCache(currentVersion);
+}
+
 // ── version ───────────────────────────────────────────────────────────────────
-if (command === '--version' || command === '-V' || command === 'version') {
-  console.log(`ccteams ${getVersion()}`);
+if (isVersionCmd) {
+  console.log(`ccteams ${currentVersion}`);
   process.exit(0);
 }
 
@@ -54,6 +84,7 @@ if (command === 'list') {
   }
 
   if (teams.length === 0) {
+    notifyIfUpdate();
     console.log('No teams found.');
     process.exit(0);
   }
@@ -78,6 +109,7 @@ if (command === 'list') {
       console.log();
     }
     console.log(dim('  Apply: ccteams use <team>    Optional: add --agent-teams to run members in parallel.'));
+    notifyIfUpdate();
     process.exit(0);
   }
 
@@ -92,6 +124,7 @@ if (command === 'list') {
   }
   console.log(dim('\n  Apply: ccteams use <team>    Full details: ccteams list --details'));
   console.log(dim('  Optional: add --agent-teams to run a team’s members in parallel.'));
+  notifyIfUpdate();
   process.exit(0);
 }
 
@@ -99,12 +132,14 @@ if (command === 'list') {
 if (command === 'current') {
   const manifest = readManifest(process.cwd());
   if (!manifest?.appliedTeam) {
+    notifyIfUpdate();
     console.log('No team currently applied. Run: ccteams use <team>');
     process.exit(0);
   }
   console.log(`Current team: ${manifest.appliedTeam}`);
   console.log(`Applied at  : ${manifest.appliedAt}`);
   console.log(`Files placed: ${manifest.placedFiles?.length ?? 0}`);
+  notifyIfUpdate();
   process.exit(0);
 }
 
@@ -128,6 +163,28 @@ if (command === 'use') {
     process.exit(1);
   }
   console.log(result.message);
+  notifyIfUpdate();
+  process.exit(0);
+}
+
+// ── upgrade ───────────────────────────────────────────────────────────────────
+if (command === 'upgrade') {
+  console.log(`Upgrading ccteams (current: ${currentVersion})...`);
+  try {
+    // stdio: 'inherit' pipes npm's output directly to the terminal so the user
+    // can see progress and any permission errors in real time.
+    execSync('npm install -g ccteams', { stdio: 'inherit' });
+    // Re-read package.json after the install to report the version that was actually
+    // installed, not the version that was running when upgrade was invoked.
+    console.log(`\nccteams upgraded successfully. Run \`ccteams --version\` to confirm.`);
+  } catch {
+    console.error(
+      '\nFailed to upgrade ccteams globally.\n' +
+        'If this is a permissions error, try: sudo npm install -g ccteams\n' +
+        'Or use a Node version manager (nvm, fnm) to avoid needing sudo.',
+    );
+    process.exit(1);
+  }
   process.exit(0);
 }
 
@@ -142,6 +199,7 @@ Usage:
   ccteams use <team>                  Apply a team to the current project
   ccteams use <team> --agent-teams    Apply a team AND enable agent-teams mode
   ccteams current                     Show the currently-applied team
+  ccteams upgrade                     Upgrade ccteams to the latest npm version
   ccteams --version                   Print the ccteams version
 
 Flags:
@@ -162,9 +220,11 @@ Examples:
   ccteams use go-api --agent-teams
   ccteams use --agent-teams rails
   ccteams current
+  ccteams upgrade
 `.trimStart();
 
 if (command === undefined || command === '--help' || command === '-h') {
+  notifyIfUpdate();
   console.log(usageText);
   process.exit(0);
 }

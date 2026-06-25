@@ -191,3 +191,28 @@
   Added a README team-table row for parity.
 - Verified: `ccteams list/--details` shows it; end-to-end `ccteams use django` in a temp project
   placed all files and `current` reports 4 files. SHIP.
+
+## 2026-06-25 — Auto-update: notify + `ccteams upgrade` (NOT full auto-update)
+
+- Added an update notifier and a `ccteams upgrade` subcommand so users no longer
+  have to remember to `npm i -g ccteams` manually.
+- Cassandra cut full-auto-update (silently rewriting a global CLI in the background):
+  pre-mortem found two unacceptable failure modes — half-written binary if another
+  invocation runs mid-install, and silent permission-denied on root-owned global
+  dirs (CI/Docker/managed Macs). Rejected (C). Overruled her "ship notify-only first,
+  add upgrade later" — the `upgrade` subcommand is ~10 lines and directly answers the
+  user's "manual is annoying", so shipped both in v1.
+- Design (zero runtime deps, kept): `lib/update-check.js`, two-phase to avoid racing
+  `process.exit()`:
+  - `maybeNotifyFromCache()` — sync, reads on-disk cache, prints ONE stderr line if the
+    *previous* run found a newer version. No network.
+  - `refreshCacheInBackground()` — fire-and-forget fetch of registry `/ccteams/latest`,
+    1500ms AbortController timeout, 24h TTL cache in `os.tmpdir()`. Result shown next run.
+  - Notice goes to stderr only (never pollutes stdout → `list --json` stays pure JSON).
+  - Suppressed by NO_UPDATE_NOTIFIER, CI, non-TTY, `--version`, `list --json`.
+  - All failures (network/timeout/parse/cache I/O) swallowed silently — never breaks the CLI.
+  - `isNewer` is a hand-rolled MAJOR.MINOR.PATCH numeric compare; prereleases compared on
+    the safe side (no spurious "upgrade to beta"). No semver dependency.
+  - `ccteams upgrade` runs `npm install -g ccteams` (execSync, inherited stdio); on failure
+    catches and prints sudo / version-manager guidance, exit 1.
+- Artemis: 23/23 PASS, zero production issues. SHIP.
