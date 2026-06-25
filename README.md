@@ -95,9 +95,11 @@ ccteams ships with these teams out of the box. Each is a builder + reviewer pair
 | `generalist`     | Stack-agnostic, end-to-end feature team: scope → design → build → QA → ship. Use when no stack-specific team fits or for general cross-stack work. |
 | `next-ts`        | Next.js (App Router) + TypeScript + Tailwind — RSC, Server Actions, type-safe data fetching, accessible UI.                                        |
 | `frontend`       | Framework-agnostic UI/UX and accessibility — UI work that isn't Next.js-specific, or focused on a11y/responsive/UX quality.                        |
+| `react-native`   | Expo + React Native (TypeScript) mobile apps — screens, navigation, data fetching, plus a native-decisions advisor (Expo/EAS/config plugins).      |
 | `go-api`         | Go HTTP API backend — idiomatic services with `net/http` and `database/sql`.                                                                       |
 | `python-fastapi` | Python FastAPI + Pydantic v2 — async HTTP APIs with full type coverage and validation.                                                             |
 | `rails`          | Ruby on Rails — ActiveRecord, convention-over-configuration, the full Rails stack.                                                                 |
+| `django`         | Django + Django REST Framework — ORM, migrations, class-based views, and DRF APIs. Fat models, thin views.                                          |
 | `debug`          | Stack-agnostic bug hunting — reproduce → root-cause → minimal fix → regression test.                                                               |
 | `research`       | Stack-agnostic technical research — compare options and produce a written recommendation. Writes no code.                                          |
 
@@ -228,7 +230,7 @@ MIT © toffyui. See [LICENSE](./LICENSE) for the full text.
 
 ## Orynth
 
-I would be greateful if you can vote here!
+I would be grateful if you can vote here!
 
 <a href="https://orynth.dev/projects/ccteams" target="_blank" rel="noopener">
   <img src="https://orynth.dev/api/badge/ccteams?theme=light&style=default" alt="Featured on Orynth" width="260" height="80" />

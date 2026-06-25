@@ -174,3 +174,20 @@
   collisions — no half-apply. Verdict SHIP.
 - Cleaned the Phase-0 relic from this repo's own .claude/ (the old `agents/ccteams/`,
   `active-team.md`, and the CLAUDE.md import line) since this repo is not a ccteams target.
+
+## 2026-06-25 — Add `django` team (Django + DRF)
+
+- Added a `django` team package under `teams/django/` (team.json + orchestration.md + 3 agents).
+- Granularity: chose 3 agents over the usual builder+reviewer pair. The third role splits along
+  Django's real seam — plain Django (ORM/migrations/views/admin) vs Django REST Framework
+  (serializers/viewsets/permissions), which have distinct failure modes and idioms:
+  - `django-builder` — models, migrations, CBVs, forms, admin, management commands.
+  - `drf-api` — serializers, viewsets, routers, permissions, auth, pagination.
+  - `django-reviewer` — verifies: N+1, migration safety/reversibility, permission gaps
+    (incl. object-level + `fields='__all__'`), missing validation; runs pytest/manage.py test.
+- Principles baked in: fat model / thin view; explicit `on_delete`; never auto-`migrate`;
+  `select_related`/`prefetch_related` at the queryset; secrets via env.
+- No registry edit needed — `lib/teams.js` discovers teams dynamically from `teams/*/team.json`.
+  Added a README team-table row for parity.
+- Verified: `ccteams list/--details` shows it; end-to-end `ccteams use django` in a temp project
+  placed all files and `current` reports 4 files. SHIP.

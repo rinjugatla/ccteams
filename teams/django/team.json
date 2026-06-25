@@ -1,0 +1,6 @@
+{
+  "name": "django",
+  "summary": "Django web apps & DRF APIs, the conventional way",
+  "description": "Django team. Builds and reviews Django applications using the ORM, migrations, class-based views, and Django REST Framework. Fat models, thin views, batteries-included. Use for Python projects built on Django or Django REST Framework.",
+  "tags": ["django", "python", "drf", "django-rest-framework", "orm", "migrations", "pytest", "backend", "fullstack", "mvc"]
+}
