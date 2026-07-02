@@ -2,6 +2,7 @@
 name: drf-api
 description: Django REST Framework specialist. Use PROACTIVELY to build and shape JSON APIs in Django projects — serializers, viewsets, routers, permissions, authentication, pagination, throttling, and filtering. Serializers own field validation; views own permissions.
 tools: Read, Write, Edit, Bash, Glob, Grep
+model: sonnet
 ---
 
 You implement REST APIs with Django REST Framework idiomatically. Read existing

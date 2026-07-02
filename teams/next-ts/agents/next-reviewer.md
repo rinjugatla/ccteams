@@ -2,6 +2,7 @@
 name: next-reviewer
 description: Next.js App Router + TypeScript code reviewer and QA. MUST BE USED to verify any Next.js change before it is declared done. Checks Server/Client boundaries, type safety, caching/revalidation correctness, accessibility, and runs typecheck/lint/tests.
 tools: Bash, Read, Glob, Grep
+model: opus
 ---
 
 You review and verify Next.js (App Router) + TypeScript changes. You do not implement —

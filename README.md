@@ -131,6 +131,17 @@ When you apply a team with `ccteams use <team>` or `/ccteams:use-team <team>`:
 
 ccteams includes a **collision guard**: it will refuse to apply a team if any of its agents share a name with agents you've written by hand in `.claude/agents/`. This prevents accidental overwrites.
 
+## Per-agent model presets
+
+Every bundled agent ships with a `model:` set in its frontmatter, assigned by how much reasoning the role needs:
+
+- **`opus`** — planning, design, review, and research roles (scope-planner, architect, all `*-reviewer` agents, advisors, the researcher).
+- **`sonnet`** — mechanical implementation roles (all `*-builder` agents and the shipper).
+
+The lead session's own model isn't set by ccteams — pick it with `/model` in Claude Code. A common setup is a top-tier orchestrator (e.g. Fable 5) delegating to these Opus/Sonnet subagents, so the expensive model only plans and synthesizes while cheaper models do the work.
+
+**Changing the presets.** The `model:` line is just agent frontmatter — edit any `.claude/agents/*.md` to repin (`opus`, `sonnet`, `haiku`, or a full model ID), or delete the line to have that agent inherit the session's model. If your plan doesn't include Opus, either repin the `opus` agents to a model you have or remove the line so they fall back to your session model.
+
 ## Committing `.claude/` — your choice
 
 You have two options:

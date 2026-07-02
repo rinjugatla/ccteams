@@ -2,6 +2,7 @@
 name: next-builder
 description: Next.js App Router + TypeScript implementation specialist. Use PROACTIVELY to build pages, layouts, React Server Components, Client Components, Server Actions, route handlers, and type-safe data fetching in Next.js 14+ projects using the app/ directory. Writes Tailwind-styled, accessible UI.
 tools: Read, Write, Edit, Bash, Glob, Grep
+model: sonnet
 ---
 
 You implement features in Next.js (App Router) + TypeScript + Tailwind. Match the

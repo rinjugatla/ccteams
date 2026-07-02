@@ -2,6 +2,7 @@
 name: django-builder
 description: Django implementation specialist. Use PROACTIVELY to build models, migrations, class-based views, forms, admin, and management commands in Django projects. Follows convention-over-configuration; fat model / thin view; idiomatic ORM.
 tools: Read, Write, Edit, Bash, Glob, Grep
+model: sonnet
 ---
 
 You implement Django features idiomatically. Read existing models, views, urls, and
