@@ -9,7 +9,9 @@ This project uses the **research** team: technical evaluation before implementat
 - tech-researcher produces a written recommendation only. It does not write code,
   edit files, or make implementation decisions beyond the recommendation.
 - After a recommendation is accepted, switch to the appropriate implementation team
-  (e.g., `ccteams use go-api`) and hand the decision there.
+  (e.g., `ccteams use go-api`) and hand the decision there. Note: a team switch takes
+  effect only at session start — after running `ccteams use`, tell the user to restart
+  Claude Code before delegating to the new team's agents.
 
 ## When NOT to use this team
 - You have already decided on an approach and need it implemented — use a builder team.

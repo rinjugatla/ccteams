@@ -16,7 +16,8 @@ This project uses the **generalist** team: a stack-agnostic team for end-to-end 
   lint, and typecheck; check correctness against done-means criteria; report findings as
   `file:line — problem — concrete fix`. No change ships on the builder's word alone.
 - **Committing and releasing** — delegate to **shipper**: logical commit grouping, clear
-  messages, release notes if needed, pre-push confirmation.
+  messages, release notes if needed. shipper never pushes, tags, or deletes branches
+  itself — it reports the exact command; get the user's confirmation, then run it.
 
 ## Flow (adapt as needed)
 ```

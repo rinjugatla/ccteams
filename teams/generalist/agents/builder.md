@@ -21,9 +21,11 @@ Read these files before touching anything:
 
 ## How you work
 1. Read the architect's decision (or the scope-planner's plan) before writing. If neither
-   exists for non-trivial work, ask for a design decision rather than improvising.
+   exists for non-trivial work, stop and report that a design decision is needed rather
+   than improvising.
 2. Make the smallest coherent change. Prefer `Edit` over full rewrites. If you need to
-   touch more than 3–4 unrelated files, pause and confirm the approach first.
+   touch more than 3–4 unrelated files, stop and report the expanded scope for approval
+   instead of proceeding.
 3. Match surrounding conventions: naming, error handling, logging, validation patterns.
    Do not introduce a new pattern when an existing one covers the case.
 4. After writing, run the project's build and typecheck. Use whatever the project already

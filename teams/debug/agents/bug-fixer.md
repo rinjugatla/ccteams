@@ -21,7 +21,8 @@ clearly before making the change.
 
 ### 1. Verify you have what you need
 Confirm you have: a confirmed root cause, a reproduction (failing test or exact steps),
-and the file(s)/line(s) identified by bug-reproducer. If any is missing, ask for it.
+and the file(s)/line(s) identified by bug-reproducer. If any is missing, stop and
+report what is missing instead of proceeding.
 
 ### 2. Read before writing
 Read the failing code and its callers. Understand how the fix will interact with
@@ -29,8 +30,8 @@ surrounding logic before touching anything.
 
 ### 3. Make the minimal change
 Edit only the lines necessary to fix the root cause. Prefer a targeted `Edit` over
-a full file rewrite. If you need to touch more than ~3 unrelated locations, pause
-and confirm the approach first.
+a full file rewrite. If you need to touch more than ~3 unrelated locations, stop and
+report the expanded scope for approval instead of proceeding.
 
 ### 4. Add the regression test
 Add or modify a test that:
