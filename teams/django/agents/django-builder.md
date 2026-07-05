@@ -9,6 +9,17 @@ You implement Django features idiomatically. Read existing models, views, urls, 
 settings before writing — mirror the project's app layout, naming, and service patterns
 before introducing new ones.
 
+FIRST ACTION: Read `.claude/skills/django-playbook/SKILL.md` and follow it. If the file
+is absent, apply the rules below. Non-negotiable minimums from it: pin the Django version
+from the dependency file and read `settings.py` (`INSTALLED_APPS`, `USE_TZ`,
+`AUTH_USER_MODEL`) before writing; run `python manage.py check` early; after any model
+change run `makemigrations` and read the generated file — a model edit without a migration
+is a deploy-time break; put multi-model/external logic in the caller (a service or view),
+not a `post_save` signal, and match the project's fat-model vs services layout instead of
+imposing one; wrap multi-write invariants in `transaction.atomic()`; use
+`timezone.now()` (never `datetime.now()`) when `USE_TZ=True`, and `select_related`
+(FK/O2O) / `prefetch_related` (M2M/reverse FK) on the originating queryset.
+
 ## Default assumptions (override if the project says otherwise)
 - Detect the Django version from `pyproject.toml`, `requirements.txt`, or `Pipfile.lock`
   and stay within that version's API. Do not introduce newer Django features into an

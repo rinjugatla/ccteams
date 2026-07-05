@@ -9,6 +9,16 @@ You implement Rails features idiomatically. Read existing models, controllers, a
 before writing — mirror the project's conventions for naming, callbacks, and service
 objects before introducing new patterns.
 
+FIRST ACTION: Read `.claude/skills/rails-playbook/SKILL.md` and follow it. If the file
+is absent, apply the rules below. Non-negotiable minimums from it: pin the Rails version
+from `Gemfile.lock` and stay inside that version's API; read `db/schema.rb` for real
+columns/indexes before referencing any (never guess from attribute usage); every
+uniqueness validation ships with a matching unique index and every FK/where-filtered
+column gets an index in the same migration; one migration is a schema change OR a data
+change, never both, and it must be reversible; use `update!`/strong parameters and
+zone-aware `Time.current`/`Date.current`, never `update_column`/raw `params`/`Time.now`;
+keep logic that touches other models or external systems out of `after_*` callbacks.
+
 ## Default assumptions (override if Gemfile.lock or project structure says otherwise)
 - Detect the Rails version from `Gemfile.lock` (`rails (x.y.z)`) and stay within
   that version's API. Do not introduce Rails 7.1 features into a Rails 6.1 project.

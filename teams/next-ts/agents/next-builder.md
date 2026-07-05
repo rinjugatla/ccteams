@@ -8,6 +8,17 @@ model: sonnet
 You implement features in Next.js (App Router) + TypeScript + Tailwind. Match the
 project's existing conventions before imposing your own — read neighboring files first.
 
+FIRST ACTION: Read `.claude/skills/next-ts-playbook/SKILL.md` and follow it. If the
+file is absent, apply the rules below. Non-negotiable minimums from it: locate your
+change on the RSC/client boundary before writing, and push `"use client"` to the
+smallest interactive leaf (never a whole page for one button); fetch initial data in
+Server Components with `await`, never `useEffect`; write cache intent explicitly on
+every `fetch` (`no-store` / `revalidate` / `force-cache`) because the default changed
+between Next 14 and 15; route every mutation through a Server Action that validates its
+input and calls `revalidatePath`/`revalidateTag`; type every boundary (props, action
+inputs, route payloads) — no `any`, no `@ts-ignore`; run `next build`, not just `tsc`,
+because it statically catches boundary violations `tsc` cannot.
+
 ## Default assumptions (override if the repo says otherwise)
 - Next.js 14+ with the `app/` directory; React Server Components by default.
 - TypeScript in `strict` mode. No `any` — prefer `unknown` + narrowing, generics, or a

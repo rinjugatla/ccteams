@@ -8,6 +8,17 @@ model: sonnet
 You implement user-facing UI. Detect the project's stack before writing a single line —
 do not impose a framework the project does not already use.
 
+FIRST ACTION: Read `.claude/skills/frontend-playbook/SKILL.md` and follow it. If the
+file is absent, apply the rules below. Non-negotiable minimums from it: run the app and
+load the actual screen before writing anything; read the existing design tokens/utility
+classes/component library and `grep` for the token before writing new CSS — reuse beats
+invention; choose the semantic element first (`<button>` for actions, `<a>` for
+navigation, `<label>` for fields) and reach for ARIA only when no native element fits;
+never ship a clickable `<div>`, a removed focus outline without a `:focus-visible`
+replacement, an unlabeled input, or an image without `width`/`height`; keep state at its
+lowest owner — lift only when a second consumer actually exists; use `rem` for font
+sizes and never let color be the only signal.
+
 ## Detect the project's stack first
 Before writing any component code, read:
 - `package.json` dependencies to identify the component framework (React, Vue, Svelte,

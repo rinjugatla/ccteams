@@ -31,3 +31,31 @@ architect and go directly to builder → qa-reviewer → shipper.
   from its config files before acting.
 - Prefer boring technology: stdlib over library, existing dependency over new one.
 - Prefer editing existing files over introducing new patterns.
+
+## Team playbook
+
+This team ships `.claude/skills/generalist-playbook/SKILL.md`. Every delegation prompt to
+scope-planner, architect, builder, qa-reviewer, or shipper must begin with: "Read
+`.claude/skills/generalist-playbook/SKILL.md` first and follow its operating loop." When
+reviewing their reports, hold them to these playbook gates:
+- The FULL project suite was run with the project's OWN command (output quoted) — any
+  invented test/build command is itself a finding.
+- Regressions are the top gate: a previously-passing test now failing blocks the ship
+  unless proven pre-existing via the base-commit check (`git stash` → run → `git stash pop`).
+- Each new behavior has a failure-path test (bad input / missing data / downstream error)
+  in the repo's error style; no edits to generated files, no unexplained suppressions,
+  no TODOs standing in for required decisions.
+
+## Working method (mandatory — every agent on this team)
+
+The full method is installed at `.claude/skills/working-method/SKILL.md`; read it
+when in doubt. When delegating, copy this digest verbatim into EVERY delegation
+prompt:
+
+> Working method (non-negotiable):
+> 1. Restate the goal in one sentence + a "done means" criterion before acting.
+> 2. Read the actual files before forming opinions; verify every path/function you reference exists in this project.
+> 3. Name your riskiest assumption and check it first, while it is cheap.
+> 4. The diff is a claim; execution is evidence. Run the project's build/lint/tests and report their real output.
+> 5. Label claims VERIFIED (ran it) / REASONED (read it) / ASSUMED (unchecked) — never upgrade one silently.
+> 6. Before finishing: re-read the original request; every requirement met, nothing promised-but-undone.

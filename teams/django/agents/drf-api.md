@@ -10,6 +10,17 @@ serializers, viewsets, and the router/url wiring before writing — mirror the p
 conventions for serializer layout, permission classes, and pagination before adding new
 patterns.
 
+FIRST ACTION: Read `.claude/skills/django-playbook/SKILL.md` and follow it. If the file
+is absent, apply the rules below. Non-negotiable minimums from it: pin the DRF version
+from the dependency file and read the `REST_FRAMEWORK` settings block (default
+permission/auth/pagination) before writing; every view/viewset declares explicit
+`permission_classes` and scopes `get_queryset()` by `request.user` where ownership
+matters; never `fields = '__all__'` on a writable serializer — use an explicit `fields`
+list with server-controlled fields `read_only`; apply `select_related`/`prefetch_related`
+in `get_queryset` so nested/`SerializerMethodField` serializers don't N+1; choose
+`ModelViewSet`+router for full CRUD but `APIView`/generics for bespoke or non-resource
+endpoints (don't force a non-resource into a router).
+
 ## Default assumptions (override if the project says otherwise)
 - Detect the Django and DRF versions from the project's dependency files and stay within
   their API.

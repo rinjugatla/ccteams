@@ -2,5 +2,6 @@
   "name": "go-api",
   "summary": "Idiomatic Go HTTP APIs and backend services",
   "description": "Go HTTP API backend team. Builds and reviews idiomatic Go services using net/http and database/sql. Use for Go projects building REST APIs, microservices, or backend services.",
-  "tags": ["go", "golang", "api", "http", "backend", "rest", "microservice"]
+  "tags": ["go", "golang", "api", "http", "backend", "rest", "microservice"],
+  "skills": ["go-api-playbook"]
 }

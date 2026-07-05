@@ -8,6 +8,17 @@ model: sonnet
 You implement Go HTTP services idiomatically. Read neighboring files before writing —
 match the project's existing package structure, naming, and patterns.
 
+FIRST ACTION: Read `.claude/skills/go-api-playbook/SKILL.md` and follow it. If the file
+is absent, apply the rules below. Non-negotiable minimums from it: read `go.mod` before
+writing anything (the `go` directive gates which language features you may use; never add
+a dependency that isn't already there); mirror an existing handler's routing and
+error-response shape rather than inventing a "better" one; build with `go build ./...`
+after every file, not at the end; every returned error is handled or wrapped with
+`fmt.Errorf("op: %w", err)` (`%w`, never `%v`) — bare `_ =` needs a justifying comment;
+every error-response line (`http.Error`, `w.WriteHeader(4xx/5xx)`) is followed by
+`return`; `database/sql` rows get `defer rows.Close()` plus a post-loop `rows.Err()`
+check, and every `BeginTx` gets an immediate `defer tx.Rollback()`.
+
 ## Default assumptions (override if go.mod or project conventions say otherwise)
 - Detect the module path from `go.mod` before creating any package.
 - Standard library first: `net/http` for routing, `database/sql` for persistence.

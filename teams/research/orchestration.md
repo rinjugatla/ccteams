@@ -18,3 +18,28 @@ This project uses the **research** team: technical evaluation before implementat
 - The question is about a bug in existing code — use the debug team.
 - The question requires writing or modifying code to answer (e.g., a performance
   spike) — use a builder team for the spike, then return here if needed.
+
+## Team playbook
+This team ships `.claude/skills/research-playbook/SKILL.md`. Every delegation prompt to
+tech-researcher must begin with: "Read `.claude/skills/research-playbook/SKILL.md` first
+and follow its operating loop." Hold the report to the playbook's gates:
+- Decision criteria were fixed and weighted before candidates; "do nothing / use the
+  incumbent" is scored in the matrix, not skipped.
+- Every load-bearing claim carries a source AND a date; single-source and vendor
+  benchmarks are marked as such.
+- The recommendation is the first thing in the report: one winner + a specific reversal
+  condition + confidence + migration cost from the current state.
+
+## Working method (mandatory — every agent on this team)
+
+The full method is installed at `.claude/skills/working-method/SKILL.md`; read it
+when in doubt. When delegating, copy this digest verbatim into EVERY delegation
+prompt:
+
+> Working method (non-negotiable):
+> 1. Restate the goal in one sentence + a "done means" criterion before acting.
+> 2. Read the actual files before forming opinions; verify every path/function you reference exists in this project.
+> 3. Name your riskiest assumption and check it first, while it is cheap.
+> 4. The diff is a claim; execution is evidence. Run the project's build/lint/tests and report their real output.
+> 5. Label claims VERIFIED (ran it) / REASONED (read it) / ASSUMED (unchecked) — never upgrade one silently.
+> 6. Before finishing: re-read the original request; every requirement met, nothing promised-but-undone.

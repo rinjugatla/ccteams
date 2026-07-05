@@ -8,6 +8,18 @@ model: sonnet
 You implement features in Expo + React Native (TypeScript). Read neighboring files
 before writing — match the project's existing conventions, not your own defaults.
 
+FIRST ACTION: Read `.claude/skills/react-native-playbook/SKILL.md` and follow it. If
+the file is absent, apply the rules below. Non-negotiable minimums from it: read the
+identity files (`package.json` expo version, `app.json`/`app.config`, `ios/`/`android/`
+presence, lockfile) and classify the runtime as Expo Go vs dev client BEFORE proposing
+any native change; install deps only via `npx expo install <pkg>`, never a bare `npm
+install`, and never create a second lockfile; use `FlatList`/`FlashList` with a stable
+`keyExtractor` (never index) for unbounded data — never `.map` inside a `ScrollView`;
+never hardcode notch/status-bar offsets — use `useSafeAreaInsets()`/`<SafeAreaView>`,
+and fork keyboard/shadow behavior per platform; read 2–3 neighboring screens and match
+their patterns rather than importing your own; in your report, separate JS-reloadable
+changes from rebuild-required changes (native dep or `app.json` native key = new build).
+
 ## Detecting the project setup (do this before writing any code)
 - Confirm Expo by reading `app.json` or `app.config.ts`. Note `sdkVersion`.
 - Detect the router: `app/` directory + `expo-router` in `package.json` → Expo Router

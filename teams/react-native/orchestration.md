@@ -50,3 +50,30 @@ Native uncertainty?
 - `StyleSheet.create` for static styles; `useSafeAreaInsets` / `<SafeAreaView>`
   for notch and home-indicator clearance.
 - `FlatList` or `FlashList` for variable-length lists — never `.map` in `ScrollView`.
+
+## Team playbook
+
+This team ships `.claude/skills/react-native-playbook/SKILL.md`. Every delegation prompt
+to rn-advisor, rn-builder, or rn-reviewer must begin with: "Read
+`.claude/skills/react-native-playbook/SKILL.md` first and follow its operating loop."
+When reviewing their reports, hold them to these playbook gates:
+- Runtime was classified (Expo Go vs dev client) before any native change, and native
+  deps/config-plugin changes state the rebuild requirement — no "install and reload".
+- No `.map` over unbounded data in a `ScrollView`, and `FlatList`/`FlashList` use a
+  stable `keyExtractor` (never index); safe-area insets used instead of hardcoded offsets.
+- The builder actually ran `npx tsc --noEmit` and `npx expo-doctor` (output quoted), with
+  per-platform manual checks named when devices weren't run.
+
+## Working method (mandatory — every agent on this team)
+
+The full method is installed at `.claude/skills/working-method/SKILL.md`; read it
+when in doubt. When delegating, copy this digest verbatim into EVERY delegation
+prompt:
+
+> Working method (non-negotiable):
+> 1. Restate the goal in one sentence + a "done means" criterion before acting.
+> 2. Read the actual files before forming opinions; verify every path/function you reference exists in this project.
+> 3. Name your riskiest assumption and check it first, while it is cheap.
+> 4. The diff is a claim; execution is evidence. Run the project's build/lint/tests and report their real output.
+> 5. Label claims VERIFIED (ran it) / REASONED (read it) / ASSUMED (unchecked) — never upgrade one silently.
+> 6. Before finishing: re-read the original request; every requirement met, nothing promised-but-undone.

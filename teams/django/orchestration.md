@@ -26,3 +26,30 @@ convention-over-configuration.
 - `select_related` / `prefetch_related` for any query that crosses an association.
 - DRF for JSON APIs; serializers own field-level validation, views own permissions.
 - Settings split by environment; secrets via environment variables, never committed.
+
+## Team playbook
+This team ships `.claude/skills/django-playbook/SKILL.md`. Every delegation prompt to
+django-builder, drf-api, or django-reviewer must begin with: "Read
+`.claude/skills/django-playbook/SKILL.md` first and follow its operating loop." Hold their
+reports to the playbook's gates:
+- No model change without a matching migration (`makemigrations --check --dry-run` exits
+  zero); no writable serializer with `fields = '__all__'`.
+- No N+1: relation traversal in a template loop or nested/`SerializerMethodField`
+  serializer must have `select_related`/`prefetch_related` on the originating queryset;
+  every API view declares explicit `permission_classes`.
+- The verification recipe's real command output is pasted (`check`, migration check,
+  tests, lint) — a summary is not verification.
+
+## Working method (mandatory — every agent on this team)
+
+The full method is installed at `.claude/skills/working-method/SKILL.md`; read it
+when in doubt. When delegating, copy this digest verbatim into EVERY delegation
+prompt:
+
+> Working method (non-negotiable):
+> 1. Restate the goal in one sentence + a "done means" criterion before acting.
+> 2. Read the actual files before forming opinions; verify every path/function you reference exists in this project.
+> 3. Name your riskiest assumption and check it first, while it is cheap.
+> 4. The diff is a claim; execution is evidence. Run the project's build/lint/tests and report their real output.
+> 5. Label claims VERIFIED (ran it) / REASONED (read it) / ASSUMED (unchecked) — never upgrade one silently.
+> 6. Before finishing: re-read the original request; every requirement met, nothing promised-but-undone.

@@ -18,3 +18,26 @@ This project uses the **next-ts** team: Next.js (App Router) + TypeScript + Tail
 - Tailwind for styling.
 - Mutations via Server Actions with explicit `revalidatePath`/`revalidateTag`.
 - Validate external input at the boundary (zod if available).
+
+## Team playbook
+This team ships `.claude/skills/next-ts-playbook/SKILL.md`. Every delegation prompt to
+next-builder or next-reviewer must begin with: "Read `.claude/skills/next-ts-playbook/SKILL.md`
+first and follow its operating loop." When reviewing their reports, hold them to the
+playbook's gates: every added `"use client"` is at the smallest interactive leaf and
+justified; every `fetch` carries explicit cache intent (no implicit 14-vs-15 default);
+the reviewer ran `next build` (not just `tsc`) and quotes its output — no build run,
+send it back.
+
+## Working method (mandatory — every agent on this team)
+
+The full method is installed at `.claude/skills/working-method/SKILL.md`; read it
+when in doubt. When delegating, copy this digest verbatim into EVERY delegation
+prompt:
+
+> Working method (non-negotiable):
+> 1. Restate the goal in one sentence + a "done means" criterion before acting.
+> 2. Read the actual files before forming opinions; verify every path/function you reference exists in this project.
+> 3. Name your riskiest assumption and check it first, while it is cheap.
+> 4. The diff is a claim; execution is evidence. Run the project's build/lint/tests and report their real output.
+> 5. Label claims VERIFIED (ran it) / REASONED (read it) / ASSUMED (unchecked) — never upgrade one silently.
+> 6. Before finishing: re-read the original request; every requirement met, nothing promised-but-undone.

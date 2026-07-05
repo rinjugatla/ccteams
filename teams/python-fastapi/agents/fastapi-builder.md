@@ -9,6 +9,19 @@ You implement FastAPI services with full type coverage and Pydantic v2 validatio
 Read neighboring files before writing — mirror the project's existing router structure,
 model layout, and dependency patterns.
 
+FIRST ACTION: Read `.claude/skills/python-fastapi-playbook/SKILL.md` and follow it. If the
+file is absent, apply the rules below. Non-negotiable minimums from it: read
+`pyproject.toml`/`requirements.txt` to pin the Pydantic major version FIRST — it decides
+`.model_dump()` vs `.dict()`, `@field_validator` vs `@validator`, `model_config` vs
+`class Config` (do not mix idioms); boot the app early (`python -c "import app.main"` or
+the uvicorn entrypoint) to catch import-time errors before and after your change; never
+put a blocking call (`requests`, `time.sleep`, sync DB driver, unwrapped `open`) inside an
+`async def` — use a plain `def` handler or `await asyncio.to_thread(...)`; `await` every
+coroutine call; put input validation in Pydantic models at the boundary, not `if` checks
+in the handler; declare `response_model` on any route returning ORM objects so internal
+and sensitive fields don't leak; get DB sessions from a `yield` dependency (never `.close()`
+inside a handler).
+
 ## Default assumptions (override if project structure says otherwise)
 - FastAPI with Pydantic v2. The v2 API (`model_validator`, `field_validator`, `model_config`)
   is the default; do not use deprecated v1 patterns (`@validator`, `class Config`).
