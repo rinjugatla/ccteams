@@ -88,7 +88,7 @@ After `ccteams use`, **restart Claude Code** so the team loads (see below).
 
 ## Available teams
 
-ccteams ships with these teams out of the box. Each is a builder + reviewer pair (except `research`, which is a single read-only researcher).
+ccteams ships with these teams out of the box. Each is a builder + reviewer pair (except `research`, which is a single read-only researcher), and every team bundles a **domain playbook skill** (`<team>-playbook`) — an operational distillation of frontier-model working discipline for that stack: an operating loop, a failure catalog (symptom → wrong instinct → correct move), discriminating checks, decision trees, a verification recipe, and a reviewer hunt list. Agents are instructed to read their playbook as their first action, and the team's orchestration rules gate reports against it.
 
 | Team             | What it's for                                                                                                                                      |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -124,12 +124,28 @@ After running `ccteams use`, `/ccteams:use-team`, or `/ccteams:choose-team`, **y
 When you apply a team with `ccteams use <team>` or `/ccteams:use-team <team>`:
 
 1. The team's agent definitions are copied into `.claude/agents/`.
-2. A `.claude/active-team.md` file is created, documenting the active team and its purpose.
-3. Your project's `.claude/CLAUDE.md` is updated with an import statement (`@.claude/active-team.md`) to include the team's orchestration rules.
-4. A `.claude/.ccteams-manifest.json` is written to track which team is active and allow clean switching.
-5. If you pass `--agent-teams` (or the team opts in via `"requiresAgentTeams": true`), `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in `.claude/settings.json`. This is optional — without it, the team runs in the normal orchestrated mode.
+2. The team's skills are copied into `.claude/skills/` — every team ships the shared `working-method` skill (see below), plus any team-specific skills it declares.
+3. A `.claude/active-team.md` file is created, documenting the active team and its purpose.
+4. Your project's `.claude/CLAUDE.md` is updated with an import statement (`@.claude/active-team.md`) to include the team's orchestration rules.
+5. A `.claude/.ccteams-manifest.json` is written to track which team is active and allow clean switching.
+6. If you pass `--agent-teams` (or the team opts in via `"requiresAgentTeams": true`), `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in `.claude/settings.json`. This is optional — without it, the team runs in the normal orchestrated mode.
 
-ccteams includes a **collision guard**: it will refuse to apply a team if any of its agents share a name with agents you've written by hand in `.claude/agents/`. This prevents accidental overwrites.
+ccteams includes a **collision guard**: it will refuse to apply a team if any of its agents or skills share a filename with files you've written by hand in `.claude/agents/` or `.claude/skills/`. This prevents accidental overwrites.
+
+## The working-method skill
+
+Every team installs `.claude/skills/working-method/SKILL.md`: a distillation of frontier-model working discipline — goal compression, ground truth before opinion, hypothesis discipline, execution as evidence, honest reporting, and an exit checklist. It exists to close the gap between model tiers: most of what makes a top-tier model's output better is discipline and verification, which smaller models can follow as instructions.
+
+It is delivered through two channels:
+
+- **Always active:** every team's orchestration rules (in `.claude/active-team.md`, always in context) instruct the orchestrator to inject a 6-point working-method digest into every delegation prompt, so every subagent receives it regardless of model.
+- **On demand:** the full skill file is available for the orchestrator or any agent to read when depth is needed.
+
+Because ccteams places it, re-running `ccteams use` overwrites any local edits to the file (same semantics as `active-team.md`). To customize it permanently, copy the content to a differently-named skill.
+
+## Team playbooks
+
+On top of the shared working method, every team ships its own `<team>-playbook` skill (installed at `.claude/skills/<team>-playbook/SKILL.md`). Where the working method is stack-agnostic discipline, the playbook is the domain expertise: the exact reconnaissance order for that stack, the 10–15 mistakes mid-tier models actually make in it, the cheap experiments that settle its recurring uncertainties, and the exact commands that constitute verification. Delivery is three-layered so it reliably reaches subagents: each agent's system prompt starts with a "FIRST ACTION: read the playbook" directive plus inline non-negotiable minimums, the orchestration rules require every delegation prompt to open with the read-the-playbook instruction, and the full skill file is available on demand.
 
 ## Per-agent model presets
 
@@ -162,10 +178,13 @@ in `teams/<name>/`:
 teams/<name>/
 ├── team.json               # Metadata: name, description, tags, optional flags
 ├── orchestration.md        # The CLAUDE.md rules to import (defines roles, goals, behavior)
-└── agents/
-    ├── agent1.md           # YAML frontmatter + agent system prompt
-    ├── agent2.md
-    └── ...
+├── agents/
+│   ├── agent1.md           # YAML frontmatter + agent system prompt
+│   ├── agent2.md
+│   └── ...
+└── skills/                 # Optional: team-specific skills
+    └── my-skill/
+        └── SKILL.md
 ```
 
 ### `team.json` schema
@@ -175,11 +194,14 @@ teams/<name>/
   "name": "my-team",
   "description": "A short pitch of what this team does",
   "tags": ["backend", "api", "performance"],
-  "requiresAgentTeams": false
+  "requiresAgentTeams": false,
+  "skills": ["my-skill"]
 }
 ```
 
 Set `"requiresAgentTeams": true` if your team uses agent-to-agent messaging or collaborative member features.
+
+`skills` is optional. Each name resolves first to the team's own `skills/<name>/`, then falls back to the repo-level `shared/skills/<name>/`. The shared `working-method` skill is placed for every team automatically — you never need to list it.
 
 ### Agent files (`.md`)
 
