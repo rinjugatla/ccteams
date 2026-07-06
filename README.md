@@ -147,6 +147,8 @@ Because ccteams places it, re-running `ccteams use` overwrites any local edits t
 
 On top of the shared working method, every team ships its own `<team>-playbook` skill (installed at `.claude/skills/<team>-playbook/SKILL.md`). Where the working method is stack-agnostic discipline, the playbook is the domain expertise: the exact reconnaissance order for that stack, the 10–15 mistakes mid-tier models actually make in it, the cheap experiments that settle its recurring uncertainties, and the exact commands that constitute verification. Delivery is three-layered so it reliably reaches subagents: each agent's system prompt starts with a "FIRST ACTION: read the playbook" directive plus inline non-negotiable minimums, the orchestration rules require every delegation prompt to open with the read-the-playbook instruction, and the full skill file is available on demand.
 
+Playbooks are living documents: the working method's learning loop instructs the orchestrator to draft a new failure-catalog entry (symptom → wrong instinct → correct move) whenever a mistake surfaces that the playbook didn't predict, and to propose it to you. Accepted lessons belong in this repo's `teams/<team>/skills/` (the local `.claude/skills/` copy is overwritten on the next `ccteams use`), so every future session starts immune to that mistake class.
+
 ## Per-agent model presets
 
 Every bundled agent ships with a `model:` set in its frontmatter, assigned by how much reasoning the role needs:
