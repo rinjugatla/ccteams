@@ -125,10 +125,11 @@ When you apply a team with `ccteams use <team>` or `/ccteams:use-team <team>`:
 
 1. The team's agent definitions are copied into `.claude/agents/`.
 2. The team's skills are copied into `.claude/skills/` — every team ships the shared `working-method` skill (see below), plus any team-specific skills it declares.
-3. A `.claude/active-team.md` file is created, documenting the active team and its purpose.
-4. Your project's `.claude/CLAUDE.md` is updated with an import statement (`@.claude/active-team.md`) to include the team's orchestration rules.
-5. A `.claude/.ccteams-manifest.json` is written to track which team is active and allow clean switching.
-6. If you pass `--agent-teams` (or the team opts in via `"requiresAgentTeams": true`), `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in `.claude/settings.json`. This is optional — without it, the team runs in the normal orchestrated mode.
+3. A user-owned `.claude/skills/team-lessons/SKILL.md` is scaffolded **once** if absent. This file is yours: ccteams never tracks, overwrites, or deletes it, so it survives team switches, re-applies, and package updates. (The name `team-lessons` is reserved — teams cannot ship a skill under it.)
+4. A `.claude/active-team.md` file is created, documenting the active team and its purpose.
+5. Your project's `.claude/CLAUDE.md` is updated with an import statement (`@.claude/active-team.md`) to include the team's orchestration rules.
+6. A `.claude/.ccteams-manifest.json` is written to track which team is active and allow clean switching.
+7. If you pass `--agent-teams` (or the team opts in via `"requiresAgentTeams": true`), `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in `.claude/settings.json`. This is optional — without it, the team runs in the normal orchestrated mode.
 
 ccteams includes a **collision guard**: it will refuse to apply a team if any of its agents or skills share a filename with files you've written by hand in `.claude/agents/` or `.claude/skills/`. This prevents accidental overwrites.
 
@@ -147,7 +148,10 @@ Because ccteams places it, re-running `ccteams use` overwrites any local edits t
 
 On top of the shared working method, every team ships its own `<team>-playbook` skill (installed at `.claude/skills/<team>-playbook/SKILL.md`). Where the working method is stack-agnostic discipline, the playbook is the domain expertise: the exact reconnaissance order for that stack, the 10–15 mistakes mid-tier models actually make in it, the cheap experiments that settle its recurring uncertainties, and the exact commands that constitute verification. Delivery is three-layered so it reliably reaches subagents: each agent's system prompt starts with a "FIRST ACTION: read the playbook" directive plus inline non-negotiable minimums, the orchestration rules require every delegation prompt to open with the read-the-playbook instruction, and the full skill file is available on demand.
 
-Playbooks are living documents: the working method's learning loop instructs the orchestrator to draft a new failure-catalog entry (symptom → wrong instinct → correct move) whenever a mistake surfaces that the playbook didn't predict, and to propose it to you. Accepted lessons belong in this repo's `teams/<team>/skills/` (the local `.claude/skills/` copy is overwritten on the next `ccteams use`), so every future session starts immune to that mistake class.
+Playbooks are living documents: the working method's learning loop instructs the orchestrator to draft a new failure-catalog entry (symptom → wrong instinct → correct move) whenever a mistake surfaces that the playbook didn't predict, and to propose it to you. Accepted lessons have two homes, by scope:
+
+- **Project-specific lessons** go into `.claude/skills/team-lessons/SKILL.md` — the user-owned file ccteams scaffolds once and never touches again. It survives team switches and package updates, and the orchestrator injects its entries into delegations alongside playbook rules. (Never put lessons in the playbook copies themselves — those are replaced on every `ccteams use`.)
+- **Universal lessons** — true for the stack in any project — belong upstream: open a PR against the team's playbook in this repo, and every user's team gains the immunity on the next release.
 
 ## Per-agent model presets
 
