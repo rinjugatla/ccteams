@@ -1,0 +1,7 @@
+{
+  "name": "adaptive",
+  "description": "Adaptive team with dynamic agent generation. Uses agent-teams collaborative mode to enable direct agent-to-agent messaging, and supports runtime agent definition generation when new roles emerge during project construction.",
+  "tags": ["full-stack", "adaptive", "dynamic", "collaborative"],
+  "requiresAgentTeams": true,
+  "skills": ["adaptive-playbook"]
+}
