@@ -1,0 +1,7 @@
+{
+  "name": "sveltekit",
+  "summary": "SvelteKit 2 + Svelte 5 + TypeScript",
+  "description": "SvelteKit 2 + Svelte 5 + TypeScript team. Builds and reviews reactive components, server-side rendering, form actions, and type-safe load functions. Use for projects using SvelteKit 2 with Svelte 5 and TypeScript.",
+  "tags": ["sveltekit", "svelte", "svelte5", "typescript", "ssr", "form-actions", "reactive", "frontend", "fullstack"],
+  "skills": ["sveltekit-playbook"]
+}
