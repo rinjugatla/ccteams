@@ -62,66 +62,6 @@ A full uninstall/reinstall is **not** needed. New slash commands reach users whe
 plugin's `version` is bumped (the plugin is versioned via `plugin.json`); a marketplace
 update followed by `/reload-plugins` picks them up.
 
-## Adaptive team: Quick start
-
-The **`adaptive` team** is ideal for end-to-end project construction with human-like collaboration and dynamic team expansion. Use it when:
-- Building a new project from scratch (requirements may shift)
-- Complex, exploratory work (needs real-time agent coordination)
-- You want the team to generate specialist roles as they become necessary
-
-### Workflow
-
-```bash
-# 1. Apply the adaptive team
-ccteams use adaptive
-
-# 2. Restart Claude Code (/exit, then start a new session)
-
-# 3. In the new session, describe your project vision
-"I want to build an AI-powered task management system with:
- - User authentication
- - Task CRUD operations
- - AI-based priority suggestion
- - Real-time collaboration"
-
-# 4. The team auto-orchestrates
-scope-planner  ← (clarifies requirements, scopes MVP)
-architect      ← (designs data model, APIs, tech stack)
-builder        ← (implements, may generate new agents if needed)
-qa-reviewer    ← (verifies correctness, runs tests)
-shipper        ← (commits, prepares release)
-
-# 5. If new agents are generated, restart Claude Code once more
-/exit  ← (new agents load)
-```
-
-### Agent-teams mode
-
-The adaptive team runs with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, which enables **direct agent-to-agent messaging**. This means:
-- Agents can ask each other questions in real-time
-- No need for all communication to route through the lead
-- Faster collaboration and decision-making
-- Emergent behaviors (agents discovering they need a new teammate)
-
-### Example: Dynamic role generation
-
-```
-During implementation, builder discovers:
-"This feature needs PII handling and compliance verification. 
- We should add a compliance-reviewer agent."
-
-architect (via direct message): "Agreed. Responsibilities?"
-
-builder: "Validate GDPR compliance, data retention policies, 
-         PII handling patterns. Generated: 
-         .claude/agents/compliance-reviewer.md"
-
-lead (you): /exit  ← restart
-
-next session: compliance-reviewer is active
-              qa-reviewer, builder, and compliance-reviewer collaborate
-```
-
 ## Usage
 
 ### Command Line (CLI)
@@ -152,7 +92,6 @@ ccteams ships with these teams out of the box. Each is a builder + reviewer pair
 
 | Team             | What it's for                                                                                                                                      |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `adaptive`       | **Collaborative, dynamically-extensible team** — Uses agent-teams mode for direct agent-to-agent messaging. Generates new specialist roles at runtime when the team identifies needs during project construction. Best for complex, exploratory projects where requirements may evolve. See [Dynamic agent generation](#dynamic-agent-generation) below. |
 | `generalist`     | Stack-agnostic, end-to-end feature team: scope → design → build → QA → ship. Use when no stack-specific team fits or for general cross-stack work. |
 | `next-ts`        | Next.js (App Router) + TypeScript + Tailwind — RSC, Server Actions, type-safe data fetching, accessible UI.                                        |
 | `frontend`       | Framework-agnostic UI/UX and accessibility — UI work that isn't Next.js-specific, or focused on a11y/responsive/UX quality.                        |
@@ -226,12 +165,6 @@ The lead session's own model isn't set by ccteams — pick it with `/model` in C
 
 **Changing the presets.** The `model:` line is just agent frontmatter — edit any `.claude/agents/*.md` to repin (`opus`, `sonnet`, `haiku`, or a full model ID), or delete the line to have that agent inherit the session's model. If your plan doesn't include Opus, either repin the `opus` agents to a model you have or remove the line so they fall back to your session model.
 
-**For dynamically-generated agents**: When the adaptive team's builder generates a new agent, it automatically assigns:
-- `model: opus` for review/advisory/verification roles
-- `model: sonnet` for implementation or execution roles
-
-Adjust as needed after generation.
-
 ## Committing `.claude/` — your choice
 
 You have two options:
@@ -241,61 +174,6 @@ You have two options:
 **Option B (local teams):** Add `.claude/agents/`, `.claude/active-team.md`, and `.claude/.ccteams-manifest.json` to `.gitignore`. Each developer can run `ccteams use` locally to activate their preferred team.
 
 **Recommendation:** If your project benefits from consistent team composition (e.g., a shared code style or mandatory QA agents), commit the team. Otherwise, keep it local.
-
-**Note on dynamically-generated agents**: If using the **adaptive team** and new agents are generated during development, you may want to commit them to share the expanded team roster with teammates. Alternatively, generate them locally and teammates can regenerate them in their sessions by running the same project flow.
-
-## Dynamic agent generation
-
-The **`adaptive` team** introduces a new capability: agents can **generate new team members at runtime** when specialist roles emerge during project construction.
-
-### How it works
-
-1. **Discovery**: During implementation, an agent (typically builder or architect) recognizes that a new specialist role is needed — e.g., a security reviewer, database migration validator, or performance profiler.
-
-2. **Agent-teams collaboration**: Using direct agent-to-agent messaging (enabled by agent-teams mode), agents negotiate whether a new role is truly necessary and sketch its scope.
-
-3. **Generation**: If approved, the builder generates a complete agent definition (`.claude/agents/{new-agent}.md`) with:
-   - YAML frontmatter (name, description, tools, model)
-   - System prompt following the team's standards
-   - Integration notes (which agents it messages with)
-
-4. **Session restart**: The lead runs `/exit` to end the session. When Claude Code restarts, the new agent is loaded and available for immediate use.
-
-### Example flow
-
-```
-Project: Building a payment system with complex migrations.
-
-builder: "This involves schema changes and rollback guarantees. 
-          We need a migration-reviewer agent."
-          
-architect: "Approved. What should it verify?"
-
-builder: "Reversibility, concurrency safety, naming conventions, rollback paths."
-         "Generated: .claude/agents/migration-reviewer.md"
-         
-lead (you): /exit  ← restart session
-
-next session: migration-reviewer is now active and part of the team
-              Agent-to-agent messaging with qa-reviewer and builder
-```
-
-### Key advantages
-
-- **Team grows with project needs** — start lean, add specialization as scope emerges
-- **Agent-teams mode** enables real-time collaboration — no more lead-as-bottleneck routing
-- **Minimal overhead** — new agents follow existing standards (playbook, working method)
-- **Reversible** — generated agents are just files; remove one by deleting its `.md` file
-
-### Decision gates for new agents
-
-Before generating, the team checks:
-1. Does an existing agent already cover this?
-2. Is the role truly independent, or a sub-task of an existing agent?
-3. What is the **minimal scope** to avoid bloat?
-4. Which existing agents does it interface with?
-
-See `.claude/skills/adaptive-playbook/SKILL.md` for the full generation procedure and failure modes.
 
 ## Contributing a team
 
