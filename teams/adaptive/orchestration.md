@@ -128,3 +128,10 @@ If all gates pass → architect approves → builder generates → session resta
 - None assumed. Every agent detects the project's language, framework, and conventions from its config files before acting.
 - Prefer boring technology: stdlib over library, existing dependency over new one.
 - Prefer editing existing files over introducing new patterns.
+
+Also, on every delegation and review:
+- If `.claude/skills/team-lessons/SKILL.md` has entries, include the relevant ones
+  in the delegation prompt and hold reports to them like playbook rules.
+- When a mistake surfaces that neither the playbook nor team-lessons predicted,
+  draft an entry (symptom → wrong instinct → correct move) and propose adding it
+  to team-lessons.
