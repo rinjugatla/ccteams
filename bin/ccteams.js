@@ -4,8 +4,9 @@
  *
  * Commands:
  *   list [--json]   List available teams
- *   use <team>      Apply a team to the current project
- *   current         Show the currently-applied team
+ *   use <team>      Apply (stack) a team onto the current project
+ *   unuse <team>    Remove one applied team from the current project
+ *   current         Show the currently-applied teams
  *   upgrade         Upgrade ccteams to the latest version via npm
  */
 
@@ -16,6 +17,7 @@ import { execSync } from 'child_process';
 import { listTeams } from '../lib/teams.js';
 import { readManifest } from '../lib/manifest.js';
 import { useTeam } from '../lib/use.js';
+import { unuseTeam } from '../lib/unuse.js';
 import { maybeNotifyFromCache, refreshCacheInBackground } from '../lib/update-check.js';
 
 // Read the version from package.json (single source of truth), resolved relative
@@ -131,14 +133,20 @@ if (command === 'list') {
 // ── current ──────────────────────────────────────────────────────────────────
 if (command === 'current') {
   const manifest = readManifest(process.cwd());
-  if (!manifest?.appliedTeam) {
+  const teamNames = manifest ? Object.keys(manifest.teams) : [];
+  if (teamNames.length === 0) {
     notifyIfUpdate();
     console.log('No team currently applied. Run: ccteams use <team>');
     process.exit(0);
   }
-  console.log(`Current team: ${manifest.appliedTeam}`);
-  console.log(`Applied at  : ${manifest.appliedAt}`);
-  console.log(`Files placed: ${manifest.placedFiles?.length ?? 0}`);
+  console.log(`Applied teams (${teamNames.length}):\n`);
+  teamNames.forEach((name, i) => {
+    const entry = manifest.teams[name];
+    const primary = i === 0 ? '  (primary)' : '';
+    console.log(`  ${name}${primary}`);
+    console.log(`    Applied at  : ${entry.appliedAt}`);
+    console.log(`    Files placed: ${entry.placedFiles?.length ?? 0}`);
+  });
   notifyIfUpdate();
   process.exit(0);
 }
@@ -158,6 +166,25 @@ if (command === 'use') {
   }
 
   const result = useTeam(teamName, process.cwd(), { agentTeams: agentTeamsFlag });
+  if (!result.success) {
+    console.error(`Error: ${result.message}`);
+    process.exit(1);
+  }
+  console.log(result.message);
+  notifyIfUpdate();
+  process.exit(0);
+}
+
+// ── unuse ────────────────────────────────────────────────────────────────────
+if (command === 'unuse') {
+  const teamName = args[1];
+
+  if (!teamName) {
+    console.error('Usage: ccteams unuse <team-name>');
+    process.exit(1);
+  }
+
+  const result = unuseTeam(teamName, process.cwd());
   if (!result.success) {
     console.error(`Error: ${result.message}`);
     process.exit(1);
@@ -196,16 +223,23 @@ Usage:
   ccteams list                        List all available teams (compact)
   ccteams list --details              List teams with full descriptions and tags
   ccteams list --json                 Machine-readable JSON list (for scripts/slash commands)
-  ccteams use <team>                  Apply a team to the current project
+  ccteams use <team>                  Apply (stack) a team onto the current project
   ccteams use <team> --agent-teams    Apply a team AND enable agent-teams mode
-  ccteams current                     Show the currently-applied team
+  ccteams unuse <team>                Remove one applied team from the current project
+  ccteams current                     Show all currently-applied teams
   ccteams upgrade                     Upgrade ccteams to the latest npm version
   ccteams --version                   Print the ccteams version
+
+Multiple teams: "use" is additive — you can apply more than one team to the same
+project (e.g. a stack team plus "frontend"). The first team you apply is the
+primary team; its orchestration rules govern the project. Run "ccteams unuse <team>"
+to remove one without disturbing the others.
 
 Flags:
   --agent-teams   Enable CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in .claude/settings.json
                   for the applied team. Position-agnostic: works before or after <team>.
                   Teams that declare "requiresAgentTeams" set this automatically.
+                  The key stays set as long as any applied team still needs it.
 
 Agent teams mode:
   By default a team is orchestrated: one lead delegates to members one at a time,
@@ -216,9 +250,11 @@ Agent teams mode:
 
 Examples:
   ccteams list
+  ccteams use generalist
   ccteams use frontend
   ccteams use go-api --agent-teams
   ccteams use --agent-teams rails
+  ccteams unuse frontend
   ccteams current
   ccteams upgrade
 `.trimStart();

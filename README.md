@@ -1,6 +1,6 @@
 # ccteams — Agent-Team Package Manager for Claude Code
 
-Apply a pre-built team of Claude Code subagents to your project with one command, and switch teams whenever the work changes. An **agent team** is a bundle of subagents (with specific roles, expertise, and behaviors) plus orchestration rules that control how they collaborate — managed as a single unit in your project's `.claude/` directory.
+Apply a pre-built team of Claude Code subagents to your project with one command, and stack or remove teams whenever the work changes. An **agent team** is a bundle of subagents (with specific roles, expertise, and behaviors) plus orchestration rules that control how they collaborate — managed as a single unit in your project's `.claude/` directory. Applying a team is **additive**: you can have more than one team applied to the same project at once (e.g. a stack-specific team plus `frontend`), and `ccteams unuse <team>` removes one without disturbing the others.
 
 ## Two ways to use it
 
@@ -12,13 +12,14 @@ Use ccteams from the terminal, from inside Claude Code, or both — whichever fi
 
 ```bash
 ccteams list                 # see the teams
-ccteams use <team>           # apply one (e.g. ccteams use go-api) to the current project
+ccteams use <team>           # apply one (e.g. ccteams use go-api) to the current project — additive
+ccteams unuse <team>         # remove one applied team, leaving any others in place
 ```
 
-|                           | How you drive it        |                                                                                                                               |
-| ------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **CLI** (`ccteams`)       | From your terminal      | `ccteams list`, `ccteams use <team>`, `ccteams current`                                                                       |
-| **Plugin** (`/ccteams:*`) | From inside Claude Code | `/ccteams:list-teams`, `/ccteams:use-team`, and `/ccteams:choose-team` — describe what you need and it picks the team for you |
+|                           | How you drive it        |                                                                                                                                                     |
+| ------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------|
+| **CLI** (`ccteams`)       | From your terminal      | `ccteams list`, `ccteams use <team>`, `ccteams unuse <team>`, `ccteams current`                                                                     |
+| **Plugin** (`/ccteams:*`) | From inside Claude Code | `/ccteams:list-teams`, `/ccteams:use-team`, `/ccteams:unuse-team`, and `/ccteams:choose-team` — describe what you need and it picks the team for you |
 
 The CLI is the engine, so it's always installed; the plugin adds the in-Claude-Code slash
 commands (its skills call the CLI under the hood). Install one or both.
@@ -45,7 +46,7 @@ For slash commands inside Claude Code, add the marketplace and install the plugi
 /reload-plugins
 ```
 
-Or restart Claude Code. The slash commands `/ccteams:list-teams`, `/ccteams:use-team`, and `/ccteams:choose-team` will then be available. (The plugin's skills call the `ccteams` CLI under the hood, so the CLI must be installed too.)
+Or restart Claude Code. The slash commands `/ccteams:list-teams`, `/ccteams:use-team`, `/ccteams:unuse-team`, and `/ccteams:choose-team` will then be available. (The plugin's skills call the `ccteams` CLI under the hood, so the CLI must be installed too.)
 
 ## Updating
 
@@ -70,19 +71,21 @@ update followed by `/reload-plugins` picks them up.
 ccteams list                      # All teams (compact, one line each)
 ccteams list --details            # Full descriptions and tags
 ccteams list --json               # Machine-readable JSON
-ccteams use <team>                # Apply a team to the current project
+ccteams use <team>                # Apply (stack) a team onto the current project — additive
 ccteams use <team> --agent-teams  # Apply it AND enable agent-teams mode (optional)
-ccteams current                   # Show the currently active team
+ccteams unuse <team>              # Remove one applied team, leaving any others in place
+ccteams current                   # Show all currently-applied teams
 ccteams --version                 # Print the version
 ```
 
-After `ccteams use`, **restart Claude Code** so the team loads (see below).
+After `ccteams use` or `ccteams unuse`, **restart Claude Code** so the change loads (see below).
 
 ### Claude Code (slash commands — via the plugin)
 
 ```
 /ccteams:list-teams                    # List available teams
-/ccteams:use-team <team-name>          # Apply a team
+/ccteams:use-team <team-name>          # Apply (stack) a team
+/ccteams:unuse-team <team-name>        # Remove one applied team
 /ccteams:choose-team <natural-language> # Find and apply a team by description ("for backend work", "frontend-focused", etc.)
 ```
 
@@ -106,17 +109,19 @@ ccteams ships with these teams out of the box. Each is a builder + reviewer pair
 
 Run `ccteams list` for the full descriptions and tags, or `/ccteams:choose-team <what you need>` to let Claude pick one for you.
 
-## One team per session (and monorepos)
+## Multiple teams per project (and monorepos)
 
-ccteams applies **one team per project at a time**. `ccteams use <team>` is an exclusive switch: applying a new team cleanly replaces the previous one.
+`ccteams use <team>` is **additive**: applying a team stacks it alongside any team(s) already applied, instead of replacing them. The **first** team you ever apply to a project is the **primary team** — its orchestration rules govern the project and its lead acts as the single orchestrator. Every other applied team is a **support team**: its agents are additional specialists available for delegation. Run `ccteams unuse <team>` to remove one team without disturbing the others; if you remove the primary team, the next-applied team is promoted to primary. `ccteams current` shows every applied team in order, with the primary marked.
 
-This is partly a Claude Code constraint: subagents in `.claude/agents/` are **global to the project** and cannot be scoped to a subdirectory. You can't, for example, have the `next-ts` team active only in `apps/web/` and `go-api` only in `apps/api/` at the same time with isolation.
+A common pattern: apply a stack-specific team (e.g. `go-api`) as primary, then additionally apply `frontend` for UI work in the same project, without losing either team's agents.
 
-**Monorepo workaround:** pick the team that matches the area you're actively working on. Claude Code loads `CLAUDE.md` files along the path to the files you're editing, so launching `claude` from the subdirectory you're working in gives you that subtree's `CLAUDE.md` context — but the applied team's agents themselves remain available repo-wide.
+Note that subagents in `.claude/agents/` are **global to the project** and cannot be scoped to a subdirectory. You can't, for example, have the `next-ts` team active only in `apps/web/` and `go-api` only in `apps/api/` at the same time with isolation.
+
+**Monorepo workaround:** apply the teams that match the areas you're actively working on. Claude Code loads `CLAUDE.md` files along the path to the files you're editing, so launching `claude` from the subdirectory you're working in gives you that subtree's `CLAUDE.md` context — but every applied team's agents remain available repo-wide.
 
 ## IMPORTANT: Session restart required
 
-After running `ccteams use`, `/ccteams:use-team`, or `/ccteams:choose-team`, **you must restart Claude Code** for the new agent team to load. The agents are instantiated at session start, not mid-session.
+After running `ccteams use`, `ccteams unuse`, `/ccteams:use-team`, `/ccteams:unuse-team`, or `/ccteams:choose-team`, **you must restart Claude Code** for the change to load. Agents are instantiated at session start, not mid-session.
 
 **To restart:** type `/exit` (or close Claude Code) and start a new session.
 
@@ -126,13 +131,18 @@ When you apply a team with `ccteams use <team>` or `/ccteams:use-team <team>`:
 
 1. The team's agent definitions are copied into `.claude/agents/`.
 2. The team's skills are copied into `.claude/skills/` — every team ships the shared `working-method` skill (see below), plus any team-specific skills it declares.
-3. A user-owned `.claude/skills/team-lessons/SKILL.md` is scaffolded **once** if absent. This file is yours: ccteams never tracks, overwrites, or deletes it, so it survives team switches, re-applies, and package updates. (The name `team-lessons` is reserved — teams cannot ship a skill under it.)
-4. A `.claude/active-team.md` file is created, documenting the active team and its purpose.
-5. Your project's `.claude/CLAUDE.md` is updated with an import statement (`@.claude/active-team.md`) to include the team's orchestration rules.
-6. A `.claude/.ccteams-manifest.json` is written to track which team is active and allow clean switching.
-7. If you pass `--agent-teams` (or the team opts in via `"requiresAgentTeams": true`), `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in `.claude/settings.json`. This is optional — without it, the team runs in the normal orchestrated mode.
+3. A user-owned `.claude/skills/team-lessons/SKILL.md` is scaffolded **once** if absent. This file is yours: ccteams never tracks, overwrites, or deletes it, so it survives team applies, removals, re-applies, and package updates. (The name `team-lessons` is reserved — teams cannot ship a skill under it.)
+4. The team's orchestration rules are copied to `.claude/ccteams/<team-name>.md`.
+5. A generated composite `.claude/active-team.md` is (re)written, listing every currently-applied team in application order (first = primary) and importing each team's `.claude/ccteams/<team-name>.md`.
+6. Your project's `.claude/CLAUDE.md` is updated with a single import statement (`@.claude/active-team.md`) if not already present — it never changes even as teams are added or removed.
+7. A `.claude/.ccteams-manifest.json` is written to track which teams are applied, in what order, and which files each one placed, so a team can be cleanly removed later without touching another applied team's files.
+8. If you pass `--agent-teams` (or the team opts in via `"requiresAgentTeams": true`), `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in `.claude/settings.json`. This stays set as long as any applied team still needs it, and is removed automatically once no applied team does.
 
-ccteams includes a **collision guard**: it will refuse to apply a team if any of its agents or skills share a filename with files you've written by hand in `.claude/agents/` or `.claude/skills/`. This prevents accidental overwrites.
+Running `ccteams use <team>` again for a team that's already applied **re-applies** it in place (refreshes its files) without changing its position or primary status.
+
+`ccteams unuse <team>` removes one applied team: its files are deleted, **except** any file also claimed by another still-applied team (e.g. the shared `working-method` skill survives as long as at least one applied team needs it). `.claude/active-team.md` is regenerated for the remaining teams. When the last team is removed, ccteams also deletes `.claude/active-team.md`, removes the `@.claude/active-team.md` import line from `CLAUDE.md`, and deletes the manifest — `team-lessons` and any `.claude/settings.json` keys ccteams didn't write are never touched.
+
+ccteams includes a **collision guard**: it will refuse to apply a team if any of its agents or skills share a filename with a file that exists on disk but wasn't placed by any currently-applied ccteams team (i.e. you wrote it by hand). This prevents accidental overwrites; files owned by another applied ccteams team are safe to share.
 
 ## The working-method skill
 
@@ -140,10 +150,10 @@ Every team installs `.claude/skills/working-method/SKILL.md`: a distillation of 
 
 It is delivered through two channels:
 
-- **Always active:** every team's orchestration rules (in `.claude/active-team.md`, always in context) instruct the orchestrator to inject a 6-point working-method digest into every delegation prompt, so every subagent receives it regardless of model.
+- **Always active:** every team's orchestration rules (imported into `.claude/active-team.md`, always in context) instruct the orchestrator to inject a 6-point working-method digest into every delegation prompt, so every subagent receives it regardless of model.
 - **On demand:** the full skill file is available for the orchestrator or any agent to read when depth is needed.
 
-Because ccteams places it, re-running `ccteams use` overwrites any local edits to the file (same semantics as `active-team.md`). To customize it permanently, copy the content to a differently-named skill.
+Because ccteams places it, re-running `ccteams use` for a team that ships it overwrites any local edits to the file. It is only deleted once no applied team claims it anymore (see `ccteams unuse` above). To customize it permanently, copy the content to a differently-named skill.
 
 ## Team playbooks
 
@@ -151,7 +161,7 @@ On top of the shared working method, every team ships its own `<team>-playbook` 
 
 Playbooks are living documents: the working method's learning loop instructs the orchestrator to draft a new failure-catalog entry (symptom → wrong instinct → correct move) whenever a mistake surfaces that the playbook didn't predict, and to propose it to you. Accepted lessons have two homes, by scope:
 
-- **Project-specific lessons** go into `.claude/skills/team-lessons/SKILL.md` — the user-owned file ccteams scaffolds once and never touches again. It survives team switches and package updates, and the orchestrator injects its entries into delegations alongside playbook rules. (Never put lessons in the playbook copies themselves — those are replaced on every `ccteams use`.)
+- **Project-specific lessons** go into `.claude/skills/team-lessons/SKILL.md` — the user-owned file ccteams scaffolds once and never touches again. It survives applying, removing, and re-applying teams, and package updates, and the orchestrator injects its entries into delegations alongside playbook rules. (Never put lessons in the playbook copies themselves — those are replaced on every `ccteams use`.)
 - **Universal lessons** — true for the stack in any project — belong upstream: open a PR against the team's playbook in this repo, and every user's team gains the immunity on the next release.
 
 ## Per-agent model presets
@@ -169,11 +179,11 @@ The lead session's own model isn't set by ccteams — pick it with `/model` in C
 
 You have two options:
 
-**Option A (shared teams):** Commit `.claude/agents/`, `.claude/active-team.md`, and `.claude/.ccteams-manifest.json` to git. Teammates pulling the repo will automatically have the same team active.
+**Option A (shared teams):** Commit `.claude/agents/`, `.claude/ccteams/`, `.claude/active-team.md`, and `.claude/.ccteams-manifest.json` to git. Teammates pulling the repo will automatically have the same team(s) applied.
 
-**Option B (local teams):** Add `.claude/agents/`, `.claude/active-team.md`, and `.claude/.ccteams-manifest.json` to `.gitignore`. Each developer can run `ccteams use` locally to activate their preferred team.
+**Option B (local teams):** Add `.claude/agents/`, `.claude/ccteams/`, `.claude/active-team.md`, and `.claude/.ccteams-manifest.json` to `.gitignore`. Each developer can run `ccteams use` locally to apply their preferred team(s).
 
-**Recommendation:** If your project benefits from consistent team composition (e.g., a shared code style or mandatory QA agents), commit the team. Otherwise, keep it local.
+**Recommendation:** If your project benefits from consistent team composition (e.g., a shared code style or mandatory QA agents), commit the team(s). Otherwise, keep it local.
 
 ## Contributing a team
 
@@ -243,7 +253,7 @@ ccteams also supports **collaborative** teams — where subagents message each o
 
   The flag is position-agnostic, so `ccteams use --agent-teams <team>` works too.
 
-When ccteams added the env key (either way), it removes it again the next time you switch to a team that doesn't need it. No collaborative team ships by default, but the format supports authoring one.
+When ccteams added the env key (either way), it removes it again once no applied team needs it anymore — either because you ran `ccteams unuse` on the team that needed it, or because every remaining applied team runs in the normal orchestrated mode. No collaborative team ships by default, but the format supports authoring one.
 
 ## Development / local testing
 
