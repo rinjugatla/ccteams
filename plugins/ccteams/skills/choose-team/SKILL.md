@@ -1,12 +1,15 @@
 ---
 name: choose-team
-description: Pick and apply the best ccteams agent team for a described need using natural language — reads team metadata, selects the closest match, and applies it.
+description: Pick and apply the best ccteams agent team for a described need using natural language — reads team metadata, selects the closest match, and applies it additively.
 argument-hint: [natural language request]
 allowed-tools: Bash
 ---
 
 Select and apply the agent team that best matches the user's natural-language
-request. Follow these steps exactly:
+request. Applying is additive: any team already applied to the project stays
+applied, and the chosen team is stacked alongside it (use `ccteams unuse <team>` /
+`/ccteams:unuse-team` to remove a team you no longer want). Follow these steps
+exactly:
 
 1. Run `ccteams list --json` via Bash. This returns a JSON array where each element
    has `name`, `description`, `tags`, and `requiresAgentTeams`.
@@ -40,5 +43,5 @@ request. Follow these steps exactly:
 7. Relay ccteams's full output to the user — do not truncate or paraphrase it.
 
 8. Explicitly repeat the session-restart instruction: agents load at session
-   start only; the switch is NOT instantly active. The user must run `/exit`
-   then `claude` to activate the new team.
+   start only; the change is NOT instantly active. The user must run `/exit`
+   then `claude` to activate the applied team.

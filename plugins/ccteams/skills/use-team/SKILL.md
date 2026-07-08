@@ -1,11 +1,15 @@
 ---
 name: use-team
-description: Apply a named ccteams agent team to the current project by running ccteams use <team-name>.
+description: Apply (stack) a named ccteams agent team onto the current project by running ccteams use <team-name>. Additive — existing applied teams are kept.
 argument-hint: [team-name]
 allowed-tools: Bash
 ---
 
-Apply the agent team specified by the user's argument to the current project.
+Apply the agent team specified by the user's argument to the current project. This is
+additive: any team already applied stays applied — the new team is stacked alongside
+it, not swapped in. The first team ever applied to a project remains the primary team
+(its orchestration rules govern the project) unless it is later removed with
+`ccteams unuse`.
 
 Steps:
 1. If no team name was provided, run `ccteams list` via Bash, show the output, and
@@ -28,5 +32,5 @@ Steps:
 4. Relay ccteams's full output to the user — do not truncate or paraphrase it.
 
 5. Explicitly repeat the session-restart instruction from ccteams's output:
-   agents load at session start only; the switch is NOT instantly active.
-   The user must run `/exit` then `claude` to activate the new team.
+   agents load at session start only; the change is NOT instantly active.
+   The user must run `/exit` then `claude` to activate the applied team.
