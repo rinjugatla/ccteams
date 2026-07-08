@@ -95,6 +95,29 @@ that gap.
 - When blocked on missing information, gather it yourself if you can. Only
   escalate what genuinely requires a human decision.
 
+## 11. Learning loop (institutionalize what surprised you)
+
+- When a mistake surfaces that neither the team's playbook nor this project's
+  `team-lessons` predicted — a reviewer catches a builder error outside the
+  failure catalog, or the human corrects an agent — draft a new catalog entry
+  in the standard format: symptom → wrong instinct → correct move.
+- Propose the entry to the human; never persist it silently. A lesson earns
+  its place by being likely to recur — one-off accidents do not become rules.
+- The durable home for accepted entries is
+  `.claude/skills/team-lessons/SKILL.md`: a user-owned file ccteams scaffolds
+  once and never overwrites. (Do NOT put lessons in the playbook copy — it is
+  replaced on every `ccteams use`.)
+- If the lesson is universal to the stack — true in any project, not just this
+  one — also propose contributing it upstream as a PR to the team's playbook
+  in the ccteams repo, so every user's team gains the immunity.
+- Keep catalogs lean: before appending, check whether an existing entry — in
+  team-lessons or the playbook — already covers the case and sharpen it
+  instead. A bloated catalog is skimmed, not followed.
+
+When orchestrating: if `.claude/skills/team-lessons/SKILL.md` has entries,
+include the relevant ones in delegation prompts and hold reports to them
+exactly like playbook rules.
+
 ---
 
 ## The digest (for delegation prompts)

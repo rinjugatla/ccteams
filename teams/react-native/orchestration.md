@@ -77,3 +77,10 @@ prompt:
 > 4. The diff is a claim; execution is evidence. Run the project's build/lint/tests and report their real output.
 > 5. Label claims VERIFIED (ran it) / REASONED (read it) / ASSUMED (unchecked) — never upgrade one silently.
 > 6. Before finishing: re-read the original request; every requirement met, nothing promised-but-undone.
+
+Also, on every delegation and review:
+- If `.claude/skills/team-lessons/SKILL.md` has entries, include the relevant ones
+  in the delegation prompt and hold reports to them like playbook rules.
+- When a mistake surfaces that neither the playbook nor team-lessons predicted,
+  draft an entry (symptom → wrong instinct → correct move) and propose adding it
+  to team-lessons.
