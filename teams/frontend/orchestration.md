@@ -23,10 +23,15 @@ This team ships `.claude/skills/frontend-playbook/SKILL.md`. Every delegation pr
 ui-builder or ux-reviewer must begin with: "Read `.claude/skills/frontend-playbook/SKILL.md`
 first and follow its operating loop." When reviewing their reports, hold them to the
 playbook's gates: the change was run and walked by keyboard (Tab/Enter/Escape, focus
-order matches visual order) — no keyboard walkthrough, send it back; it was resized at
-320/768/1280 with no horizontal overflow; every interactive element uses a semantic
-element with a visible focus state, and new CSS reuses existing tokens rather than
-inventing literals.
+order matches visual order); it was resized at 320/768/1280 with no horizontal overflow;
+every interactive element uses a semantic element with a visible focus state, and new CSS
+reuses existing tokens rather than inventing literals.
+
+The first two gates need a rendered page. **Check that the agent you delegated to actually
+has a browser tool** — the default ux-reviewer toolset does not. If it does not, either grant
+one for the run or accept the gates as UNVERIFIED and walk the change yourself before shipping.
+What you must not accept is a report that is silent about them: a gate nobody could execute
+must appear in the report as UNVERIFIED, never fold into a PASS.
 
 ## Working method (mandatory — every agent on this team)
 
