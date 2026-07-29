@@ -103,10 +103,15 @@ that gap.
   in the standard format: symptom → wrong instinct → correct move.
 - Propose the entry to the human; never persist it silently. A lesson earns
   its place by being likely to recur — one-off accidents do not become rules.
-- The durable home for accepted entries is
-  `.claude/skills/team-lessons/SKILL.md`: a user-owned file ccteams scaffolds
-  once and never overwrites. (Do NOT put lessons in the playbook copy — it is
-  replaced on every `ccteams use`.)
+- The durable home for accepted entries is the `.claude/skills/team-lessons/`
+  skill: user-owned, scaffolded once by ccteams and never overwritten. (Do NOT
+  put lessons in the playbook copy — it is replaced on every `ccteams use`.)
+  **Before writing, read that skill's own authoring rules** (`AUTHORING.md` if
+  present, otherwise the header of `SKILL.md`) — a project may keep one lesson
+  per file under `lessons/` with `SKILL.md` holding only a generated index. If
+  the index sits between generator markers or says it is generated, append the
+  lesson file and re-run the project's generator; editing the index by hand
+  breaks the generated/committed check that CI enforces.
 - If the lesson is universal to the stack — true in any project, not just this
   one — also propose contributing it upstream as a PR to the team's playbook
   in the ccteams repo, so every user's team gains the immunity.

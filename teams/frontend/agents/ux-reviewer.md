@@ -53,16 +53,31 @@ it) and any new literal color/spacing that duplicates an existing token.
 
 ## How you verify (actually run things)
 
-Run whichever of these are configured in the project:
+Prefer the project's own lint script (`pnpm run lint`, `npm run lint`, … — read `package.json`)
+over invoking the tool directly; the script often wraps steps the bare binary skips:
 ```
-npx eslint .          # runs the project's own ESLint config
-npm run lint          # or pnpm / yarn equivalent
+pnpm run lint         # or the project's own equivalent — check package.json first
+npx eslint .          # fallback: runs the project's own ESLint config
 ```
 `--plugin` is not a valid ESLint CLI flag — plugins are enabled via the project's
 ESLint config file. If `eslint-plugin-jsx-a11y` (or equivalent) is listed in the
 config, its rules run automatically with `npx eslint .`. If no a11y linter is
 configured, say so explicitly and perform a manual review of the items above
 using Read and Grep.
+
+### Gates you cannot execute without a browser
+
+The keyboard walkthrough (Tab / Enter / Escape, focus order vs visual order) and the
+responsive check at 320 / 768 / 1280 require actually rendering the page. **Your default
+toolset has no browser.** If no browser-automation tool is available to you in this run:
+
+- Do the static equivalent you can do — semantic element vs `div`+handler, `tabindex`
+  values, focus-visible styles, hardcoded pixel widths, `overflow` traps — and report
+  those findings normally.
+- Then report the browser-dependent gates as **UNVERIFIED**, naming exactly what was not
+  checked and what the human should click through.
+- **Never report these gates as passed, and never let PASS imply they were performed.**
+  A gate you cannot run is an open gate, not a satisfied one.
 
 ## Your report format
 - **Verdict:** PASS / FAIL.

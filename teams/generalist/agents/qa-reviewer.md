@@ -56,11 +56,18 @@ from logs, errors, and the diff.
 
 Detect the project's toolchain from its config files, then run whichever exist:
 
-| Check | How to detect | Command |
+| Check | How to detect | Ecosystem default (NOT the command to run) |
 |---|---|---|
 | Tests | `package.json` test script / `go.mod` / `Gemfile` / `pytest.ini` | `npm test` / `go test ./...` / `bundle exec rspec` / `pytest` |
 | Typecheck | `tsconfig.json` / `mypy.ini` / `pyrightconfig.json` | `tsc --noEmit` / `mypy .` / `pyright` |
 | Lint | `eslint.config.*` / `.rubocop.yml` / `ruff.toml` | `eslint .` / `rubocop` / `ruff check .` |
+
+**The right-hand column tells you what kind of check exists — it is not what you type.** Run the
+project's own script, with the project's own package manager: if `package.json` defines
+`"check"`/`"lint"`/`"test"`, run those (`pnpm check`, `pnpm run lint`, …), because a project script
+usually wraps extra steps that the bare tool skips — codegen, type generation, multiple projects.
+Substituting `tsc --noEmit` for the project's `check` script is exactly the invented-command finding
+you are supposed to be reporting in others.
 
 Run all that are present. Report each command's exact output on failure.
 

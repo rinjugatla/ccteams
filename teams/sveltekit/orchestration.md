@@ -2,7 +2,8 @@
 
 This project uses the **sveltekit** team: SvelteKit 2 + Svelte 5 + TypeScript.
 
-See [AGENTS.md](../../AGENTS.md) for project-level AI guidelines.
+Project-level AI guidelines live in the repo's own instructions file (`CLAUDE.md`, or `AGENTS.md`
+if the project uses one). Read whichever exists; where it conflicts with this file, it wins.
 
 ## Orchestration rules
 
@@ -12,7 +13,9 @@ See [AGENTS.md](../../AGENTS.md) for project-level AI guidelines.
   Svelte 5 rune usage, form action security, SSR correctness, and type checks. No change ships
   on the builder's word alone.
 - Progressive enhancement: forms work without JavaScript, then enhance with `use:enhance`.
-- Server-side secrets stay server-side: `$env/static/private` only in `.server.ts` files.
+- Server-side secrets stay server-side. Detect the project's actual mechanism first: `$env/static/private`
+  in `.server.ts` files is the common case, but adapter-cloudflare projects read them from `platform.env`
+  bindings instead and may use `$env/*/private` nowhere. Review against the mechanism the project uses.
 
 ## Stack defaults (unless package.json or project conventions override)
 - SvelteKit 2 and Svelte 5 versions from `package.json`.
@@ -31,7 +34,8 @@ If the project has Svelte MCP server configured (`npx sv add mcp`), use these to
 This team ships `.claude/skills/sveltekit-playbook/SKILL.md`. Every delegation prompt to
 sveltekit-builder or sveltekit-reviewer must begin with: "Read `.claude/skills/sveltekit-playbook/SKILL.md`
 first and follow its operating loop." Hold their reports to the playbook's gates:
-- No secrets or server-only env vars leaked to the client; use `$env/static/private` only in `.server.ts`.
+- No secrets or server-only env vars leaked to the client — via imports, and via `load()` return values
+  or props, using whichever env mechanism the project actually uses.
 - Every form action validates inputs and returns proper types.
 - Svelte 5 rune usage: `$state`, `$derived`, `$effect` — not legacy `let`/`$:` syntax.
 - **svelte-autofixer** runs clean on all `.svelte` files (if MCP server available).
