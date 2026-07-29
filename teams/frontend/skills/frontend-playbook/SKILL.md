@@ -199,9 +199,17 @@ Run in this order; report exact commands/output and what you observed.
 3. **Resize at 320 / 768 / 1280 px** wide. Confirm at each: no horizontal
    scrollbar, no clipped or overlapping content, touch targets stay ≥ 24×24 CSS
    px (aim ~44×44). Note anything that breaks.
-4. **Run configured tooling** if present: `npx eslint .` (its config runs any
-   `eslint-plugin-jsx-a11y` rules automatically — `--plugin` is not a valid CLI
-   flag), the project's `lint`/`typecheck`/`test` scripts. Report real output.
+
+   Steps 2 and 3 need a rendered page. **If you have no browser tool in this
+   run**, do the static equivalent you can (semantic element vs `div`+handler,
+   `tabindex` values, focus-visible styles, hardcoded widths, `overflow` traps),
+   then report these two steps as **UNVERIFIED**, naming what was not checked.
+   Never fold a gate you could not execute into a PASS.
+4. **Run configured tooling** if present, preferring the project's own
+   `lint`/`typecheck`/`test` scripts (read `package.json`) over invoking the
+   binary directly — a project script usually wraps steps the bare tool skips.
+   Fall back to `npx eslint .` (its config runs any `eslint-plugin-jsx-a11y`
+   rules automatically — `--plugin` is not a valid CLI flag). Report real output.
 5. **axe / Lighthouse if available** (`npx @axe-core/cli <url>` or Lighthouse in
    DevTools). Report the a11y score and every violation; a violation is a
    finding, not noise. If not installed, say so and rely on the manual checks.

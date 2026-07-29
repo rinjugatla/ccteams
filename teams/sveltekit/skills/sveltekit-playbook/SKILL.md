@@ -57,7 +57,7 @@ steps and writing "generic SvelteKit" instead of THIS project's SvelteKit.
 
 - **Does the route exist?** `ls src/routes/[path]/+page.svelte` (~instant).
 - **What's the Svelte version?** `grep '"svelte":' package.json` — if 5.x, use runes; if 4.x or lower, use legacy syntax.
-- **Which adapter is configured?** `grep adapter svelte.config.js` — adapter-static = no server routes; adapter-node = full SSR; adapter-vercel = serverless.
+- **Which adapter is configured?** `grep -r adapter svelte.config.js vite.config.* 2>/dev/null` — the config lives in `svelte.config.js` in most projects, but newer setups put it in the `sveltekit({ ... })` plugin options in `vite.config.ts` and ship no `svelte.config.js` at all, so grep both. adapter-static = no server routes; adapter-node = full SSR; adapter-vercel / adapter-netlify = serverless; adapter-cloudflare = Workers (no arbitrary Node APIs without `nodejs_compat`, env via platform bindings).
 - **Is this a server-only file?** Filename ends with `.server.ts` or `.server.js` → safe for secrets.
 - **Which env vars are available?** Check the project's committed example file (`.env.example`, `.dev.vars.example`, …), its binding declarations (`wrangler.jsonc` and friends), and any generated env type declaration; distinguish `PUBLIC_*` (client-safe) from private vars. Read the example, never the real secret file.
 - **Is svelte-autofixer available?** Check for Svelte MCP server configuration — if present, run it on all modified `.svelte` files before finishing.
