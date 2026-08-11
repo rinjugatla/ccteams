@@ -1,13 +1,13 @@
 ---
 name: team-lessons
-description: Project-specific lessons learned — failure-catalog entries accumulated via the learning loop. Owned by this project; ccteams never overwrites this file.
+description: Project-specific failure catalog — symptom to correct move, accumulated via the learning loop. Read it when a past failure may bear on the task at hand, and read AUTHORING.md in this folder before recording or updating a lesson (write lessons/NN-slug.md, regenerate the index, gen-lessons.mjs --check must pass before committing). Never hand-edit the generated index.
 ---
 
 # Team Lessons (this project)
 
-Durable, project-specific additions to the active team's playbook. ccteams
-scaffolded this skill once and will never touch it again — it survives team
-switches and package updates.
+Durable, project-specific additions to the active team's playbook. This skill is
+**owned by this project**: ccteams scaffolded it once and never overwrites it,
+so it survives team switches, removals, and package updates.
 
 This file is the **index only**: one line per lesson, so consulting the catalog
 costs a line of context per entry instead of the whole history. Each lesson's
