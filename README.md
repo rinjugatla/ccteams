@@ -190,6 +190,8 @@ node .claude/skills/team-lessons/scripts/gen-lessons.mjs --check
 
 The index is committed rather than built on demand, because agents read the repo, not a build output. `--check` is what keeps a committed generated file honest — it also catches a hand-edit between the `<!-- team-lessons:catalog:* -->` markers. The script is plain Node ESM with zero dependencies, so it works in any project with Node installed, whatever its language or package manager.
 
+**Lessons are written in the project's own language** — the one its README uses — so the catalog reads like the rest of the repo instead of like a foreign appendix. Frontmatter keys and filename slugs stay ASCII regardless. The scaffolded `AUTHORING.md` states the rule where lesson authors will actually see it.
+
 **Upgrading from the older single-file layout.** If your `SKILL.md` predates this and holds its lessons inline, `ccteams use` leaves it exactly as it is, adds only the missing pieces (`AUTHORING.md`, `lessons/`, `scripts/`), and prints a note. The migration steps are in the scaffolded `AUTHORING.md`.
 
 ## Per-agent model presets

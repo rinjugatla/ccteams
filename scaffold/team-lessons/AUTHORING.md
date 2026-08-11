@@ -22,6 +22,20 @@ moment a lesson is added, renumbered, or reworded, and a stale index sends
 agents to the wrong lesson (or hides one entirely). Deriving it from each
 lesson's own frontmatter makes drift impossible to commit undetected.
 
+## Language
+
+Write lessons in **this project's primary language — the one its README is
+written in**, not the language ccteams shipped this file in. That applies to the
+lesson body and to the `symptom` / `summary` values that become the index lines.
+The catalog is read by everyone working in the repo, human and agent alike, so
+it should read like the rest of the repo; a catalog in a different language from
+the README gets skimmed and then ignored. Keep technical terms, commands, file
+paths, and identifiers in their original form rather than translating them.
+
+The mechanical parts stay ASCII whatever the prose language: frontmatter keys
+(`id`, `slug`, `symptom`, `summary`, `refs`) and the `slug` in `NN-slug.md` are
+lowercase kebab-case, so filenames and links stay predictable everywhere.
+
 ## Frontmatter schema (every file in `lessons/`)
 
 ```markdown
