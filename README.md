@@ -131,7 +131,7 @@ When you apply a team with `ccteams use <team>` or `/ccteams:use-team <team>`:
 
 1. The team's agent definitions are copied into `.claude/agents/`.
 2. The team's skills are copied into `.claude/skills/` — every team ships the shared `working-method` skill (see below), plus any team-specific skills it declares.
-3. A user-owned `.claude/skills/team-lessons/SKILL.md` is scaffolded **once** if absent. This file is yours: ccteams never tracks, overwrites, or deletes it, so it survives team applies, removals, re-applies, and package updates. (The name `team-lessons` is reserved — teams cannot ship a skill under it.)
+3. A user-owned `.claude/skills/team-lessons/` skill is scaffolded (`SKILL.md`, `AUTHORING.md`, `scripts/gen-lessons.mjs`, `lessons/.gitkeep`). Each file is written **only if absent**: everything already there is yours, and ccteams never tracks, overwrites, or deletes it, so it survives team applies, removals, re-applies, and package updates. (The name `team-lessons` is reserved — teams cannot ship a skill under it.) See [The team-lessons skill](#the-team-lessons-skill).
 4. The team's orchestration rules are copied to `.claude/ccteams/<team-name>.md`.
 5. A generated composite `.claude/active-team.md` is (re)written, listing every currently-applied team in application order (first = primary) and importing each team's `.claude/ccteams/<team-name>.md`.
 6. Your project's `.claude/CLAUDE.md` is updated with a single import statement (`@.claude/active-team.md`) if not already present — it never changes even as teams are added or removed.
@@ -161,8 +161,36 @@ On top of the shared working method, every team ships its own `<team>-playbook` 
 
 Playbooks are living documents: the working method's learning loop instructs the orchestrator to draft a new failure-catalog entry (symptom → wrong instinct → correct move) whenever a mistake surfaces that the playbook didn't predict, and to propose it to you. Accepted lessons have two homes, by scope:
 
-- **Project-specific lessons** go into `.claude/skills/team-lessons/SKILL.md` — the user-owned file ccteams scaffolds once and never touches again. It survives applying, removing, and re-applying teams, and package updates, and the orchestrator injects its entries into delegations alongside playbook rules. (Never put lessons in the playbook copies themselves — those are replaced on every `ccteams use`.)
+- **Project-specific lessons** go into the `.claude/skills/team-lessons/` skill — user-owned, scaffolded once and never touched again. It survives applying, removing, and re-applying teams, and package updates, and the orchestrator injects its entries into delegations alongside playbook rules. (Never put lessons in the playbook copies themselves — those are replaced on every `ccteams use`.)
 - **Universal lessons** — true for the stack in any project — belong upstream: open a PR against the team's playbook in this repo, and every user's team gains the immunity on the next release.
+
+## The team-lessons skill
+
+`.claude/skills/team-lessons/` is where the learning loop's accepted entries land. It is scaffolded as four files:
+
+```
+.claude/skills/team-lessons/
+├── SKILL.md                  # generated index — one line per lesson
+├── AUTHORING.md              # frontmatter schema + how to add an entry (read only when writing)
+├── lessons/                  # one lesson per file: NN-slug.md
+└── scripts/gen-lessons.mjs   # builds the index from the lessons' frontmatter
+```
+
+**Why it is split.** A single-file catalog grows without bound, and the whole file is loaded into context every time the catalog is consulted — so an old lesson nobody needs today still costs tokens on every task. Splitting it caps the always-loaded cost at one line per lesson (`symptom → correct move`, linked to the detail file), and keeps `AUTHORING.md` out of the read path entirely: it is read when writing a lesson, not when applying one.
+
+**Why the index is generated.** A hand-written index drifts the moment a lesson is added, renumbered, or reworded, and a stale index sends agents to the wrong lesson — or hides one. `scripts/gen-lessons.mjs` derives the index from each lesson's own frontmatter (`symptom` / `summary`), so there is nothing to keep in sync by hand:
+
+```bash
+# regenerate the index (run after adding or editing a lesson, commit the result)
+node .claude/skills/team-lessons/scripts/gen-lessons.mjs
+
+# verify the committed index still matches lessons/ — exits 1 on drift, wire into CI
+node .claude/skills/team-lessons/scripts/gen-lessons.mjs --check
+```
+
+The index is committed rather than built on demand, because agents read the repo, not a build output. `--check` is what keeps a committed generated file honest — it also catches a hand-edit between the `<!-- team-lessons:catalog:* -->` markers. The script is plain Node ESM with zero dependencies, so it works in any project with Node installed, whatever its language or package manager.
+
+**Upgrading from the older single-file layout.** If your `SKILL.md` predates this and holds its lessons inline, `ccteams use` leaves it exactly as it is, adds only the missing pieces (`AUTHORING.md`, `lessons/`, `scripts/`), and prints a note. The migration steps are in the scaffolded `AUTHORING.md`.
 
 ## Per-agent model presets
 
@@ -273,6 +301,14 @@ ccteams list
 ```
 
 Installs the CLI from the repo's current source.
+
+### Run the test suite
+
+```bash
+npm test
+```
+
+Runs `node --test` over `test/`. No dependencies to install — the suite uses only `node:test` and `node:assert`, matching the package's zero-dependency policy. It covers the team-lessons index generator and the never-overwrite contract of the team-lessons scaffold.
 
 ## License
 
