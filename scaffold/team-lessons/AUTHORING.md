@@ -69,7 +69,17 @@ the team playbook nor this catalog predicted.
    ```
    node .claude/skills/team-lessons/scripts/gen-lessons.mjs
    ```
-4. Commit the new lesson file **and** the regenerated `SKILL.md` together.
+4. **Verify before committing — this must exit 0:**
+   ```
+   node .claude/skills/team-lessons/scripts/gen-lessons.mjs --check
+   ```
+   This is the same command CI runs (see below), so a failure here is a failure
+   you would otherwise discover after pushing. It is redundant when step 3 just
+   succeeded, and that is the point: it is what catches the runs where step 3
+   was skipped, executed against a different checkout, or where `SKILL.md` was
+   edited by hand between the markers. **Do not commit until it passes** — fix
+   the cause and re-run step 3 rather than editing `SKILL.md` to match.
+5. Commit the new lesson file **and** the regenerated `SKILL.md` together.
 
 If the lesson is universal to the stack rather than specific to this project,
 also propose it upstream against the team's playbook in the ccteams repo.
@@ -77,7 +87,9 @@ also propose it upstream against the team's playbook in the ccteams repo.
 ## Keeping the committed index honest (CI)
 
 The index is committed, so it can go stale the same way any generated-and-
-committed artifact can. Verify it in CI:
+committed artifact can. Step 4 above is the author's own check; CI is the
+backstop for the commits that skipped it and for edits made outside this
+workflow. Run the same command there:
 
 ```
 node .claude/skills/team-lessons/scripts/gen-lessons.mjs --check
