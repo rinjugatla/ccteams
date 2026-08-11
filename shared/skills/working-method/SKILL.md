@@ -107,11 +107,14 @@ that gap.
   skill: user-owned, scaffolded once by ccteams and never overwritten. (Do NOT
   put lessons in the playbook copy — it is replaced on every `ccteams use`.)
   **Before writing, read that skill's own authoring rules** (`AUTHORING.md` if
-  present, otherwise the header of `SKILL.md`) — a project may keep one lesson
-  per file under `lessons/` with `SKILL.md` holding only a generated index. If
-  the index sits between generator markers or says it is generated, append the
-  lesson file and re-run the project's generator; editing the index by hand
-  breaks the generated/committed check that CI enforces.
+  present, otherwise the header of `SKILL.md`). The default layout is one lesson
+  per file under `lessons/NN-slug.md`, with `SKILL.md` holding only an index
+  generated from each lesson's frontmatter. So: write the lesson file, then
+  regenerate the index — `node .claude/skills/team-lessons/scripts/gen-lessons.mjs`
+  (or the project's own alias) — and commit both together. Never hand-edit
+  between the `<!-- team-lessons:catalog:* -->` markers; the generator discards
+  it and the `--check` run in CI fails on the drift. An older single-file
+  `SKILL.md` with no markers is still valid — append to it in place.
 - If the lesson is universal to the stack — true in any project, not just this
   one — also propose contributing it upstream as a PR to the team's playbook
   in the ccteams repo, so every user's team gains the immunity.
