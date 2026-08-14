@@ -102,7 +102,20 @@ that gap.
   failure catalog, or the human corrects an agent — draft a new catalog entry
   in the standard format: symptom → wrong instinct → correct move.
 - Propose the entry to the human; never persist it silently. A lesson earns
-  its place by being likely to recur — one-off accidents do not become rules.
+  its place by being likely to recur — and a second occurrence is what proves
+  that, not an estimate; one-off accidents do not become rules.
+- The threshold for recording is a count, not a prediction: the first time a
+  symptom appears, watch it — do not record it. The second time the SAME
+  symptom appears, the draft-and-propose step above fires unconditionally;
+  skip the judgment call about whether it is likely to recur. Count
+  occurrences across sessions, working directories, and agents — the second
+  time the symptom shows up anywhere is the trigger, not the second time
+  within one session (a per-session count rarely reaches two, so the
+  threshold would almost never fire).
+- "Record" does not mean "always write a new file": if an existing entry
+  already covers the symptom, sharpen it instead — see "Keep catalogs lean"
+  below. Hitting the threshold means sharpen-or-write, never a mandate to
+  add a fresh entry.
 - The durable home for accepted entries is the `.claude/skills/team-lessons/`
   skill: user-owned, scaffolded once by ccteams and never overwritten. (Do NOT
   put lessons in the playbook copy — it is replaced on every `ccteams use`.)
