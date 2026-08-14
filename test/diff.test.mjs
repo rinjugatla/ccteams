@@ -101,9 +101,71 @@ describe('showFileDiff()', () => {
 
     assert.equal(result.shown, false);
     assert.match(out, /git not available/);
+    // "Install git" is the CORRECT advice here and only here — pinned in this
+    // direction so the sibling test below (which forbids it) cannot be
+    // satisfied by simply deleting the line for every branch.
+    assert.match(out, /Install git/);
+    // The mirror image of the sibling test's "no Install git" rule: the
+    // manual-rerun advice belongs to the OTHER branch only. Telling someone
+    // with no git to run "git diff --no-index" by hand is advice they cannot
+    // follow, so a regression that emits BOTH lines unconditionally — passing
+    // every other assertion in both tests — is caught here.
+    assert.doesNotMatch(
+      out,
+      /git diff --no-index/,
+      'git is missing here — advising a manual git command the user cannot run is not an actionable next step',
+    );
     assert.ok(out.includes(projectFile), 'the fallback must name the project file');
     assert.ok(out.includes(packageSrcFile), 'the fallback must name the package source');
     // The fallback must never invent diff content it did not compute.
+    assert.doesNotMatch(out, /^diff --git/m);
+    assert.doesNotMatch(out, /PROJECT VERSION/);
+  });
+
+  test('git runs but the spawn fails (ENOBUFS): the fallback neither claims git is unavailable nor tells the user to install it', { skip: !GIT_AVAILABLE }, () => {
+    const root = makeProject();
+    const projectFile = path.join(root, 'project-copy.md');
+    const packageSrcFile = path.join(root, 'package-copy.md');
+    writeFileSync(projectFile, 'PROJECT VERSION\n', 'utf8');
+    writeFileSync(packageSrcFile, 'PACKAGE VERSION\n', 'utf8');
+
+    // A 1-byte capture buffer makes a REAL, installed git overflow it, so
+    // spawnSync sets result.error to ENOBUFS: the "git ran, we just could not
+    // collect its output" case, as opposed to the ENOENT case above. The whole
+    // point of this test is that git IS available here (hence the skip guard),
+    // so every message about a missing git is a false statement in this branch.
+    const { result, out } = captureOutput(() =>
+      showFileDiff(projectFile, packageSrcFile, { maxBuffer: 1 }),
+    );
+
+    assert.equal(result.shown, false);
+    assert.match(out, /ENOBUFS/, 'the fallback must name the failure it actually saw');
+    assert.doesNotMatch(
+      out,
+      /git not available/,
+      'git resolved and ran here — the heading must not claim it is unavailable',
+    );
+    assert.doesNotMatch(
+      out,
+      /Install git/,
+      'git is already installed here — advising an install sends the user after a problem this branch never observed',
+    );
+    // Naming the failure is only half the job: this branch must still hand the
+    // user a next step. Every other assertion here is a "must not say" one, so
+    // without this the whole advice line could vanish on the non-ENOENT path
+    // and the suite would stay green — leaving the user told that ENOBUFS
+    // happened and nothing else. Measured, not assumed: suppressing the advice
+    // for non-ENOENT left all 205 tests green before this assertion existed.
+    // Matched on the command fragment rather than the full sentence so the
+    // wording stays free to change without dragging this test along.
+    assert.match(
+      out,
+      /git diff --no-index/,
+      'the non-ENOENT fallback must still offer an actionable next step, not just name the failure',
+    );
+    assert.ok(out.includes(projectFile), 'the fallback must name the project file');
+    assert.ok(out.includes(packageSrcFile), 'the fallback must name the package source');
+    // Same rule as the ENOENT fallback: never invent diff content.
     assert.doesNotMatch(out, /^diff --git/m);
     assert.doesNotMatch(out, /PROJECT VERSION/);
   });
