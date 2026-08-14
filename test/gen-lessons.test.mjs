@@ -268,6 +268,33 @@ describe('buildSkill', () => {
     assert.throws(() => buildSkill('# no markers here\n', catalog), /markers/);
   });
 
+  test('ignores an end-marker string quoted in the prose ABOVE the start marker', () => {
+    // SKILL.md documents its own generated region, so the end marker's text can
+    // legitimately appear before the start marker. Searching for it from the top
+    // of the file would find THAT occurrence and either throw on a healthy file
+    // or replace the prose between the two occurrences.
+    const prose = `# Heading\n\nThe generated region ends at ${CATALOG_END}.\n\n`;
+    const source = `${prose}${CATALOG_START}\n(stale index)\n${CATALOG_END}\n`;
+
+    let result;
+    assert.doesNotThrow(() => {
+      result = buildSkill(source, catalog);
+    });
+    // The prose above the start marker survives verbatim, quoted marker included.
+    assert.ok(result.startsWith(prose), `prose was rewritten: ${JSON.stringify(result)}`);
+    assert.equal(
+      result.split(CATALOG_END).length - 1,
+      2,
+      'expected exactly two end markers: the one quoted in the prose + the real one',
+    );
+    // Only the real catalog region was replaced.
+    assert.ok(
+      result.includes(`${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalog}\n${CATALOG_END}`),
+      `the catalog region was not rebuilt: ${JSON.stringify(result)}`,
+    );
+    assert.ok(!result.includes('stale index'), 'the previous catalog body survived');
+  });
+
   test('throws when the markers are present but reversed', () => {
     // Writing into a file whose end marker precedes its start marker would
     // silently swallow everything between them, so this must not be tolerated.

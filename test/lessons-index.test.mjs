@@ -35,6 +35,23 @@ const skillWith = (body) =>
 const oldLayoutSkillWith = (body) =>
   `# T\n\n## Failure catalog\n\n${CATALOG_START}\n${GENERATED_NOTE}\n\n${body}\n${CATALOG_END}\n`;
 
+/**
+ * The new layout, plus a hand-written sentence in the prose ABOVE the start
+ * marker that QUOTES the end marker. SKILL.md documents its own generated
+ * region, so this is a legitimate file — but the quoted marker precedes the
+ * start marker, which is exactly what a file-wide search for the end marker
+ * trips over.
+ */
+const skillQuotingEndMarkerAbove = (body) => {
+  const base = skillWith(body);
+  const quoted = base.replace(
+    GENERATED_NOTE,
+    `The generated region ends at ${CATALOG_END}.\n\n${GENERATED_NOTE}`,
+  );
+  assert.notEqual(quoted, base, 'fixture is stale: skillWith() no longer embeds GENERATED_NOTE');
+  return quoted;
+};
+
 describe('extractCatalog', () => {
   test('extracts and trims the catalog body between the markers', () => {
     assert.equal(extractCatalog(skillWith(catalogBody)), catalogBody);
@@ -46,6 +63,15 @@ describe('extractCatalog', () => {
 
   test('returns "" when the markers are present but reversed', () => {
     assert.equal(extractCatalog(`${CATALOG_END}\n${CATALOG_START}\n`), '');
+  });
+
+  test('returns the real body when an end-marker string is quoted ABOVE the start marker', () => {
+    // SKILL.md documents its own generated region, so the end marker's text can
+    // legitimately appear before the start marker. Searching for it from the top
+    // of the file would find THAT occurrence, land before the start marker, and
+    // return '' — which the hook reports by staying silent, so the catalog would
+    // stop being injected with nothing to notice.
+    assert.equal(extractCatalog(skillQuotingEndMarkerAbove(catalogBody)), catalogBody);
   });
 
   test('returns "" for the empty-state placeholder ("(none yet)")', () => {
@@ -134,6 +160,16 @@ describe('CLI', () => {
     assert.equal(result.status, 0);
     assert.equal(result.stdout.trim(), catalogBody);
     assert.ok(!result.stdout.includes('do not edit by hand'));
+    assert.equal(result.stderr, '');
+  });
+
+  test('still prints the catalog when an end-marker string is quoted above the markers', () => {
+    // The silent-on-failure contract makes this the one bug class a hook cannot
+    // report: without this assertion, "prints nothing" looks like "no lessons".
+    const root = makeRoot(skillQuotingEndMarkerAbove(catalogBody));
+    const result = run(root);
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout.trim(), catalogBody);
     assert.equal(result.stderr, '');
   });
 

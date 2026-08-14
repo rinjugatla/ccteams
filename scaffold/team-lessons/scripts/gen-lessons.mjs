@@ -255,7 +255,17 @@ export function buildSkill(skillContent, catalogBody) {
   const normalized = skillContent.replace(/\r\n/g, '\n');
 
   const startIndex = normalized.indexOf(CATALOG_START);
-  const endIndex = normalized.indexOf(CATALOG_END);
+  // The end marker is searched only AFTER the start marker. SKILL.md documents
+  // its own generated region, so the end marker's text can legitimately appear
+  // in the hand-written prose above it; a file-wide indexOf would take that
+  // leading mention for the real terminator and either throw on a healthy file
+  // or slice the prose between the two occurrences away. The `startIndex === -1`
+  // guard keeps the search offset from being computed off a missing marker.
+  const endIndex =
+    startIndex === -1 ? -1 : normalized.indexOf(CATALOG_END, startIndex + CATALOG_START.length);
+  // `endIndex < startIndex` can no longer hold now that the search starts past
+  // the end of the start marker (a found end marker is always further along):
+  // it is kept as a cheap statement of the invariant the slice below relies on.
   if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
     throw new Error(
       `SKILL.md is missing the index markers (${CATALOG_START} / ${CATALOG_END}) in that order`,
