@@ -51,6 +51,20 @@ function legacyIndexSkill() {
   return legacy;
 }
 
+/**
+ * The same file with a hand-written sentence that QUOTES the end marker in the
+ * prose ABOVE the catalog region — a SKILL.md is allowed to document its own
+ * generated section. Searching for the end marker from the top of the file
+ * finds THIS occurrence, which precedes the start marker, and would report a
+ * healthy file as needing migration. Applied on top of either layout fixture.
+ */
+function withEndMarkerQuotedInProse(skill) {
+  const heading = '## Failure catalog';
+  const quoted = skill.replace(heading, `The generated region ends at ${CATALOG_END}.\n\n${heading}`);
+  assert.notEqual(quoted, skill, 'fixture is stale: the shipped SKILL.md no longer has a "## Failure catalog" heading');
+  return quoted;
+}
+
 describe('scaffoldTeamLessons', () => {
   test('creates the whole skill when nothing exists yet', () => {
     const dest = makeDest();
@@ -133,6 +147,32 @@ describe('scaffoldTeamLessons', () => {
     // the "no markers" case.
     assert.equal(result.needsMigration, false);
     assert.equal(readFileSync(path.join(dest, 'SKILL.md'), 'utf8'), legacy);
+  });
+
+  test('an end-marker string quoted above the markers is not reported as a migration', () => {
+    const dest = makeDest();
+    mkdirSync(dest, { recursive: true });
+    writeFileSync(path.join(dest, 'SKILL.md'), withEndMarkerQuotedInProse(currentSkill()), 'utf8');
+
+    const result = scaffoldTeamLessons(dest);
+
+    assert.equal(result.needsMigration, false);
+    // The current layout keeps the note above the start marker, so nothing
+    // inside the markers makes this the legacy layout either.
+    assert.equal(result.hasLegacyIndexLayout, false);
+  });
+
+  test('an end-marker string quoted above the markers still lets the legacy layout be detected', () => {
+    const dest = makeDest();
+    mkdirSync(dest, { recursive: true });
+    writeFileSync(path.join(dest, 'SKILL.md'), withEndMarkerQuotedInProse(legacyIndexSkill()), 'utf8');
+
+    const result = scaffoldTeamLessons(dest);
+
+    // Misreading the quoted marker as the end of the region would classify this
+    // as (a) and hide the finding the user can actually act on.
+    assert.equal(result.needsMigration, false);
+    assert.equal(result.hasLegacyIndexLayout, true);
   });
 
   test('reversed markers (END before START) count as needing migration, not as the legacy layout', () => {

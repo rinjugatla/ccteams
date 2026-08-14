@@ -51,7 +51,17 @@ export function extractCatalog(skillContent) {
   const normalized = skillContent.replace(/\r\n/g, '\n');
 
   const startIndex = normalized.indexOf(CATALOG_START);
-  const endIndex = normalized.indexOf(CATALOG_END);
+  // Scoped exactly as buildSkill() scopes it: the end marker is searched only
+  // AFTER the start marker, because SKILL.md's hand-written prose may quote the
+  // marker literals while documenting the generated region. A file-wide indexOf
+  // would find that leading mention, land before the start marker, and make this
+  // function return '' — which the hook reports as "no lessons yet" by staying
+  // silent, so the catalog would stop being injected with nothing to notice.
+  const endIndex =
+    startIndex === -1 ? -1 : normalized.indexOf(CATALOG_END, startIndex + CATALOG_START.length);
+  // `endIndex < startIndex` can no longer hold now that the search starts past
+  // the end of the start marker; it is kept as a cheap statement of the
+  // invariant the slice below relies on.
   if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
     return '';
   }
