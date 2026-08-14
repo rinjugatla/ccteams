@@ -1,7 +1,7 @@
 ---
 name: rails-builder
 description: Ruby on Rails implementation specialist. Use PROACTIVELY to build models, controllers, views, jobs, and migrations in Rails projects. Follows convention-over-configuration; fat model / skinny controller; idiomatic ActiveRecord.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 model: sonnet
 ---
 

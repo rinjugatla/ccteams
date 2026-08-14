@@ -1,7 +1,7 @@
 ---
 name: ui-builder
 description: Framework-agnostic UI implementation specialist. Use PROACTIVELY to build components, layouts, and styling for user-facing web UIs. Detects the project's existing component framework and matches its conventions rather than imposing one.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 model: sonnet
 ---
 

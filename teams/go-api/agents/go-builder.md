@@ -1,7 +1,7 @@
 ---
 name: go-builder
 description: Go HTTP API implementation specialist. Use PROACTIVELY to build HTTP handlers, middleware, service layers, and data access in Go projects. Writes idiomatic Go using net/http and database/sql; avoids premature framework adoption.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 model: sonnet
 ---
 

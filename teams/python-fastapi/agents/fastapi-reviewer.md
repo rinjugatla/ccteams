@@ -1,7 +1,7 @@
 ---
 name: fastapi-reviewer
 description: FastAPI + Pydantic v2 code reviewer and QA. MUST BE USED to verify any FastAPI change before it is declared done. Checks async correctness, Pydantic boundary validation, dependency injection hygiene, and runs ruff/mypy/pytest.
-tools: Bash, Read, Glob, Grep
+tools: Bash, Read, Glob, Grep, Skill
 model: opus
 ---
 

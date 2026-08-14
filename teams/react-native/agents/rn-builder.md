@@ -1,7 +1,7 @@
 ---
 name: rn-builder
 description: Expo + React Native (TypeScript) implementation specialist. Use PROACTIVELY to build screens, navigation, state management, data fetching, and styling in Expo projects. Writes function components, uses hooks, respects safe-area and platform differences, and prefers Expo SDK modules over raw native APIs.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 model: sonnet
 ---
 
