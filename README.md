@@ -63,6 +63,12 @@ A full uninstall/reinstall is **not** needed. New slash commands reach users whe
 plugin's `version` is bumped (the plugin is versioned via `plugin.json`); a marketplace
 update followed by `/reload-plugins` picks them up.
 
+Updating the package does **not** by itself change anything already placed in your
+project's `.claude/` — `ccteams use`, `ccteams unuse`, and `ccteams migrate` are the only
+commands that write there, and they only run when you run them. If a newer ccteams ships new files inside a
+directory it already scaffolded into your project (e.g. `.claude/skills/team-lessons/`), run
+`ccteams migrate` to pick them up — see [Keeping a project up to date](#keeping-a-project-up-to-date-ccteams-migrate) below.
+
 ## Usage
 
 ### Command Line (CLI)
@@ -75,6 +81,8 @@ ccteams use <team>                # Apply (stack) a team onto the current projec
 ccteams use <team> --agent-teams  # Apply it AND enable agent-teams mode (optional)
 ccteams unuse <team>              # Remove one applied team, leaving any others in place
 ccteams current                   # Show all currently-applied teams
+ccteams migrate                   # Add files a newer ccteams ships that this project is missing
+ccteams migrate --dry-run         # Preview only — writes nothing; exits 1 if anything is missing
 ccteams --version                 # Print the version
 ```
 
@@ -229,6 +237,21 @@ Both `SessionStart` and `SubagentStart` are needed: `SessionStart` only fires fo
 
 **Upgrading from the older single-file layout.** If your `SKILL.md` predates this and holds its lessons inline, `ccteams use` leaves it exactly as it is, adds only the missing pieces (`AUTHORING.md`, `lessons/`, `scripts/`), and prints a note. The migration steps are in the scaffolded `AUTHORING.md`.
 
+## Keeping a project up to date (`ccteams migrate`)
+
+`npm install -g ccteams@latest` upgrades the globally installed CLI, but it does **not** touch files ccteams already placed in your project — those only change when you run `ccteams use`, `ccteams unuse`, or `ccteams migrate`. `ccteams migrate` closes that gap for what it is safe for ccteams to add on its own:
+
+```bash
+ccteams migrate              # add any missing files, then print a summary
+ccteams migrate --dry-run    # preview only — writes nothing; exits 1 if anything is missing
+```
+
+- **What it does today:** adds any file missing from the scaffolded `.claude/skills/team-lessons/` skill (see above) — the same never-overwrite scaffold `ccteams use` runs, so a project that only ran `ccteams use` a while ago can pick up files a newer ccteams added to that skill (e.g. a new script) without re-applying a team.
+- **Never-overwrite:** exactly like `ccteams use`'s team-lessons scaffold, `ccteams migrate` never rewrites or deletes an existing file — only files that are entirely absent are added.
+- **`--dry-run` writes nothing** and lists what would be added. It exits `1` when anything is pending (so it composes with CI drift-checks the same way `gen-lessons.mjs --check` does — see above) and exits `0` once the project is fully up to date.
+- **Run it from the project's main checkout, not a worktree.** ccteams writes into `.claude/`, and a git worktree's `.claude/` is typically untracked local state that gets discarded when the worktree is removed — running `migrate` there would not persist the change back to the repo.
+- If ccteams is not applied in the current project (no `.claude/.ccteams-manifest.json`), `ccteams migrate` does nothing and exits `0`, pointing you at `ccteams use <team>` instead.
+
 ## Per-agent model presets
 
 Every bundled agent ships with a `model:` set in its frontmatter, assigned by how much reasoning the role needs:
@@ -345,7 +368,7 @@ Installs the CLI from the repo's current source.
 npm test
 ```
 
-Runs `node --test` over `test/`. No dependencies to install — the suite uses only `node:test` and `node:assert`, matching the package's zero-dependency policy. It covers the team-lessons index generator, the hook script that extracts the catalog for injection, and the never-overwrite contract of the team-lessons scaffold.
+Runs the test files `package.json`'s `test` script enumerates, via `node --test`. That list is explicit rather than a glob, so a new test file does nothing until you add it there too. No dependencies to install — the suite uses only `node:test` and `node:assert`, matching the package's zero-dependency policy. It covers the team-lessons index generator, the hook script that extracts the catalog for injection, the never-overwrite contract of the team-lessons scaffold, and `ccteams migrate` / `ccteams migrate --dry-run` (including its CLI integration and the never-overwrite guarantee it shares with `ccteams use`).
 
 ## License
 
