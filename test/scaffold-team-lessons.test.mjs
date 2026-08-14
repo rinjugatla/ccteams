@@ -230,8 +230,15 @@ describe('scaffoldTeamLessons', () => {
       'utf8',
     );
 
+    const result = scaffoldTeamLessons(dest);
+
     // Detection keys on the GENERATED_NOTE literal, not on "any comment", so a
     // user's own comment does not trigger a false "your file is out of date".
-    assert.equal(scaffoldTeamLessons(dest).hasLegacyIndexLayout, false);
+    assert.equal(result.hasLegacyIndexLayout, false);
+    // The markers themselves are untouched — present and ordered — so the
+    // generator CAN run and the user's comment must not be reported as a
+    // migration either. Pinning only the flag above would let a regression that
+    // classifies ANY extra line inside the markers as "needs migration" pass.
+    assert.equal(result.needsMigration, false);
   });
 });

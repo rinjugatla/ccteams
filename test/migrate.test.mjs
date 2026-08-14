@@ -108,6 +108,30 @@ function snapshotDir(dir) {
   return map;
 }
 
+/**
+ * Look a migration step up by its stable `id` (see MIGRATION_STEPS in
+ * lib/migrate.js) instead of by its position in `result.steps`. Reordering the
+ * steps is a legal refactor, and a positional lookup would then silently start
+ * asserting about a DIFFERENT step — passing or failing for reasons unrelated
+ * to what the test is named after.
+ *
+ * The explicit assert is the point of the helper: `find()` alone returns
+ * undefined for an unknown id, so the test would die on `.added of undefined`
+ * several lines later. Renaming or dropping a step id must instead fail here,
+ * naming the id that vanished and the ids that do exist.
+ */
+const stepById = (result, id) => {
+  const step = result.steps.find((s) => s.id === id);
+  assert.ok(
+    step,
+    `no migration step with id "${id}"; present ids: ${result.steps.map((s) => s.id).join(', ')}`,
+  );
+  return step;
+};
+
+/** The step that scaffolds .claude/skills/team-lessons (adds/keeps its files). */
+const scaffoldStepOf = (result) => stepById(result, 'team-lessons-scaffold');
+
 describe('migrate()', () => {
   test('ccteams not applied (no manifest): exits 0, writes nothing', async () => {
     const root = makeProject();
@@ -190,10 +214,13 @@ describe('migrate()', () => {
 
     // The three files that were missing got added; the two hand-written ones were kept.
     assert.deepEqual(
-      result.steps[0].added.slice().sort(),
+      scaffoldStepOf(result).added.slice().sort(),
       ['AUTHORING.md', 'lessons/.gitkeep', 'scripts/lessons-index.mjs'].sort(),
     );
-    assert.deepEqual(result.steps[0].kept.slice().sort(), ['SKILL.md', 'scripts/gen-lessons.mjs'].sort());
+    assert.deepEqual(
+      scaffoldStepOf(result).kept.slice().sort(),
+      ['SKILL.md', 'scripts/gen-lessons.mjs'].sort(),
+    );
   });
 
   test('--dry-run writes nothing when team-lessons is entirely absent', async () => {
@@ -236,8 +263,8 @@ describe('migrate()', () => {
     const realResult = await migrate(root, { dryRun: false });
 
     assert.deepEqual(
-      dryResult.steps[0].added.slice().sort(),
-      realResult.steps[0].added.slice().sort(),
+      scaffoldStepOf(dryResult).added.slice().sort(),
+      scaffoldStepOf(realResult).added.slice().sort(),
     );
   });
 
@@ -377,7 +404,7 @@ ${CATALOG_START}
     return root;
   };
 
-  const noticesOf = (result) => result.steps[0].notices;
+  const noticesOf = (result) => scaffoldStepOf(result).notices;
 
   test('legacy layout (note inside the markers) is reported with a regenerate command', async () => {
     const root = seedProject(legacyIndexSkill());
@@ -495,7 +522,7 @@ ${CATALOG_START}
     const result = await migrate(root);
 
     assert.deepEqual(noticesOf(result), []);
-    assert.ok(result.steps[0].added.includes('SKILL.md'), 'sanity check: SKILL.md was created');
+    assert.ok(scaffoldStepOf(result).added.includes('SKILL.md'), 'sanity check: SKILL.md was created');
   });
 
   test('a detected SKILL.md is never rewritten — byte-identical in dry-run and in a real run', async () => {
@@ -560,7 +587,7 @@ describe('migrate() — team-lessons hook detection', () => {
   const hookEntryFor = (command) => ({ matcher: '', hooks: [{ type: 'command', command }] });
   const DEFAULT_COMMAND = 'node .claude/skills/team-lessons/scripts/lessons-index.mjs';
 
-  const hookStepOf = (result) => result.steps.find((s) => s.id === 'team-lessons-hook');
+  const hookStepOf = (result) => stepById(result, 'team-lessons-hook');
   const hookNoticesOf = (result) => hookStepOf(result).notices;
 
   test('both hooks registered: nothing is reported (no heading, no notices)', async () => {
