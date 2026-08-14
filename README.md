@@ -332,13 +332,13 @@ Each agent file is a standard Claude Code subagent: YAML frontmatter (`name`, `d
 ---
 name: my-agent
 description: Backend API specialist. Use for building and reviewing REST/GraphQL endpoints, data layers, and integrations.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 ---
 
 You are a Python backend expert. Your job is to...
 ```
 
-The `description` is what Claude uses to decide when to delegate to this agent, so make it specific. Omit `tools` to inherit all available tools.
+The `description` is what Claude uses to decide when to delegate to this agent, so make it specific. When you list `tools` explicitly, include `Skill` so the agent is shown the skills available to it and can invoke them autonomously when the situation calls for it. Omit `tools` entirely to inherit all available tools.
 
 For examples to copy from, see `teams/next-ts/` (a stack-specific team) and `teams/debug/` (a stack-agnostic team). `next-ts/` is the cleanest reference for the builder + reviewer shape.
 
