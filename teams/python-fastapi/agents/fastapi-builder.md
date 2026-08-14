@@ -1,7 +1,7 @@
 ---
 name: fastapi-builder
 description: FastAPI + Pydantic v2 implementation specialist. Use PROACTIVELY to build async route handlers, dependency injection chains, Pydantic request/response models, and service logic in FastAPI projects.
-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 model: sonnet
 ---
 

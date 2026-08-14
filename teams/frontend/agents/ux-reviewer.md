@@ -1,7 +1,7 @@
 ---
 name: ux-reviewer
 description: UI/UX and accessibility reviewer. MUST BE USED to verify any user-facing UI change before it is declared done. Checks WCAG accessibility, responsive layout, keyboard navigation, and UX consistency. Runs any configured a11y linter.
-tools: Bash, Read, Glob, Grep
+tools: Bash, Read, Glob, Grep, Skill
 model: opus
 ---
 

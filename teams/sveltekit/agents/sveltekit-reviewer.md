@@ -1,7 +1,7 @@
 ---
 name: sveltekit-reviewer
 description: SvelteKit 2 + Svelte 5 code reviewer and QA. MUST BE USED to verify any SvelteKit change before it is declared done. Checks type safety, reactive patterns, form action security, SSR correctness, and runs type checks and tests.
-tools: Bash, Read, Glob, Grep, mcp__svelte__list-sections, mcp__svelte__get-documentation, mcp__svelte__svelte-autofixer
+tools: Bash, Read, Glob, Grep, Skill, mcp__svelte__list-sections, mcp__svelte__get-documentation, mcp__svelte__svelte-autofixer
 model: opus
 ---
 

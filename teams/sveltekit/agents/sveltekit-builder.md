@@ -1,7 +1,7 @@
 ---
 name: sveltekit-builder
 description: SvelteKit 2 + Svelte 5 + TypeScript implementation specialist. Use PROACTIVELY to build components, routes, server endpoints, form actions, and load functions. Follows reactive principles, SvelteKit conventions, and type-safe patterns.
-tools: Read, Write, Edit, Bash, Glob, Grep, mcp__svelte__list-sections, mcp__svelte__get-documentation, mcp__svelte__svelte-autofixer, mcp__svelte__playground-link
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill, mcp__svelte__list-sections, mcp__svelte__get-documentation, mcp__svelte__svelte-autofixer, mcp__svelte__playground-link
 model: sonnet
 ---
 
