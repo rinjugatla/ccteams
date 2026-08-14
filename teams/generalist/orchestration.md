@@ -66,3 +66,9 @@ Also, on every delegation and review:
 - When a mistake surfaces that neither the playbook nor team-lessons predicted,
   draft an entry (symptom → wrong instinct → correct move) and propose adding it
   to team-lessons.
+- The first occurrence of a symptom is a one-off: watch it, do not record
+  it yet. The second occurrence of the SAME symptom — even across sessions,
+  working directories, or agents, not just within one — triggers that
+  draft-and-propose step unconditionally, no judgment call about whether it
+  will recur again. Recording means sharpening an existing lesson if one
+  already covers it, not always writing a new file.

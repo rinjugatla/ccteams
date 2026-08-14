@@ -95,6 +95,15 @@ refs: [PR #52, Issue #66]
 Triggered by the working-method learning loop: a mistake surfaced that neither
 the team playbook nor this catalog predicted.
 
+The trigger is a count, not a prediction: the first occurrence of a symptom
+is a one-off — watch it, do not act on it yet. The second occurrence of the
+SAME symptom triggers this loop unconditionally, with no judgment call about
+whether it is likely to recur. Count across sessions, working directories,
+and agents — the second occurrence anywhere is what triggers it, not the
+second occurrence inside one session (a per-session count rarely reaches two).
+"Triggers this loop" does not mean "always write a new file": step 1 below
+applies first — sharpen an existing lesson if one already covers the symptom.
+
 1. **Check for a duplicate first.** Keep it lean — if an existing lesson (or the
    team playbook) already covers the case, sharpen that one instead of adding a
    near-duplicate. A bloated catalog gets skimmed, not followed.
