@@ -64,5 +64,5 @@ Also, on every delegation and review:
   it yet. The second occurrence of the SAME symptom — even across sessions,
   working directories, or agents, not just within one — triggers that
   draft-and-propose step unconditionally, no judgment call about whether it
-  will recur again. Recording means sharpening an existing lesson if one
+  will recur. Recording means sharpening an existing lesson if one
   already covers it, not always writing a new file.

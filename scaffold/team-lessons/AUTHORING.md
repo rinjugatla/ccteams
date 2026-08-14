@@ -96,7 +96,7 @@ Triggered by the working-method learning loop: a mistake surfaced that neither
 the team playbook nor this catalog predicted.
 
 The trigger is a count, not a prediction: the first occurrence of a symptom
-is a one-off — watch it, do not act on it yet. The second occurrence of the
+is a one-off — watch it, do not record it yet. The second occurrence of the
 SAME symptom triggers this loop unconditionally, with no judgment call about
 whether it is likely to recur. Count across sessions, working directories,
 and agents — the second occurrence anywhere is what triggers it, not the
