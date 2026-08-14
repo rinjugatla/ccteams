@@ -52,6 +52,28 @@ const applyMinimalManifest = (root) => {
 const teamLessonsDir = (root) => path.join(root, '.claude', 'skills', 'team-lessons');
 
 /**
+ * Write .claude/settings.json with the team-lessons hook already registered
+ * for both SessionStart and SubagentStart, so the team-lessons-hook step
+ * reports nothing. Used by fixtures that assert on the WHOLE formatted
+ * message (e.g. "up to date") for an unrelated step (team-lessons-scaffold's
+ * SKILL.md layout detection) — without this, those assertions would be
+ * cross-contaminated by the hook step's own (correct, but unrelated) notices.
+ */
+const registerLessonsHooks = (root) => {
+  const dir = path.join(root, '.claude');
+  mkdirSync(dir, { recursive: true });
+  const hookEntry = {
+    matcher: '',
+    hooks: [{ type: 'command', command: 'node .claude/skills/team-lessons/scripts/lessons-index.mjs' }],
+  };
+  writeFileSync(
+    path.join(dir, 'settings.json'),
+    JSON.stringify({ hooks: { SessionStart: [hookEntry], SubagentStart: [hookEntry] } }, null, 2) + '\n',
+    'utf8',
+  );
+};
+
+/**
  * Make .claude/skills/team-lessons a plain FILE instead of a directory — the
  * reproduction for the "raw stack trace / dry-run vs real mismatch" bug: a
  * step must detect this and fail cleanly in BOTH dry-run and a real run,
@@ -428,6 +450,7 @@ ${CATALOG_START}
 
   test('following the advice actually clears the notice', () => {
     const root = seedProject(legacyIndexSkill());
+    registerLessonsHooks(root); // keep the unrelated hook step silent — see its doc comment
     const skillPath = path.join(teamLessonsDir(root), 'SKILL.md');
     migrate(root); // installs the generator the notice tells the user to run
 
@@ -446,6 +469,7 @@ ${CATALOG_START}
 
   test('the current layout is reported as nothing at all', () => {
     const root = seedProject(currentSkill());
+    registerLessonsHooks(root); // keep the unrelated hook step silent — see its doc comment
     migrate(root); // installs the four files that were genuinely missing
 
     // Second run: nothing left to add, and the current layout must produce no
@@ -515,6 +539,370 @@ ${CATALOG_START}
     // Notices are advice, not pending work: they must not change the exit code.
     assert.equal(result.exitCode, 0);
     assert.equal(migrate(root, { dryRun: true }).exitCode, 0);
+  });
+});
+
+describe('migrate() — team-lessons hook detection', () => {
+  /** Write .claude/settings.json verbatim (no team-lessons hook assumptions). */
+  const writeRawSettings = (root, data) => {
+    const dir = path.join(root, '.claude');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, 'settings.json'), JSON.stringify(data, null, 2) + '\n', 'utf8');
+  };
+
+  const hookEntryFor = (command) => ({ matcher: '', hooks: [{ type: 'command', command }] });
+  const DEFAULT_COMMAND = 'node .claude/skills/team-lessons/scripts/lessons-index.mjs';
+
+  const hookStepOf = (result) => result.steps.find((s) => s.id === 'team-lessons-hook');
+  const hookNoticesOf = (result) => hookStepOf(result).notices;
+
+  test('both hooks registered: nothing is reported (no heading, no notices)', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    writeRawSettings(root, {
+      hooks: {
+        SessionStart: [hookEntryFor(DEFAULT_COMMAND)],
+        SubagentStart: [hookEntryFor(DEFAULT_COMMAND)],
+      },
+    });
+
+    const result = migrate(root);
+
+    assert.deepEqual(hookNoticesOf(result), []);
+    assert.doesNotMatch(result.message, /team-lessons hook/, 'heading must not appear when there is nothing to report');
+  });
+
+  test('only SessionStart registered: only SubagentStart is advised', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    writeRawSettings(root, { hooks: { SessionStart: [hookEntryFor(DEFAULT_COMMAND)] } });
+
+    const notices = hookNoticesOf(migrate(root));
+
+    assert.ok(notices.some((l) => l.includes('! SubagentStart')), `expected a SubagentStart notice, got:\n${notices.join('\n')}`);
+    assert.ok(!notices.some((l) => l.includes('! SessionStart')), 'SessionStart is already registered — it must not be flagged');
+    assert.ok(notices.some((l) => l.includes('"SubagentStart": [')), 'expected a copy-pasteable SubagentStart fragment');
+    assert.ok(!notices.some((l) => l.includes('"SessionStart": [')), 'a registered event must not get a fragment either');
+  });
+
+  test('only SubagentStart registered: only SessionStart is advised', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    writeRawSettings(root, { hooks: { SubagentStart: [hookEntryFor(DEFAULT_COMMAND)] } });
+
+    const notices = hookNoticesOf(migrate(root));
+
+    assert.ok(notices.some((l) => l.includes('! SessionStart')), `expected a SessionStart notice, got:\n${notices.join('\n')}`);
+    assert.ok(!notices.some((l) => l.includes('! SubagentStart')), 'SubagentStart is already registered — it must not be flagged');
+    assert.ok(notices.some((l) => l.includes('"SessionStart": [')), 'expected a copy-pasteable SessionStart fragment');
+    assert.ok(!notices.some((l) => l.includes('"SubagentStart": [')), 'a registered event must not get a fragment either');
+  });
+
+  test('hooks key present but neither event registered: both are advised', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    writeRawSettings(root, { hooks: { SomeOtherHookEvent: [hookEntryFor('node some-other-script.mjs')] } });
+
+    const notices = hookNoticesOf(migrate(root));
+
+    assert.ok(notices.some((l) => l.includes('! SessionStart')));
+    assert.ok(notices.some((l) => l.includes('! SubagentStart')));
+  });
+
+  test('hooks key absent entirely: both events are advised', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    writeRawSettings(root, { permissions: { allow: [] } }); // some unrelated key, no hooks at all
+
+    const notices = hookNoticesOf(migrate(root));
+
+    assert.ok(notices.some((l) => l.includes('! SessionStart')));
+    assert.ok(notices.some((l) => l.includes('! SubagentStart')));
+  });
+
+  test('settings.json absent: both events are advised and migrate still succeeds', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    // Deliberately no settings.json written at all.
+
+    const result = migrate(root);
+
+    assert.equal(result.success, true);
+    const notices = hookNoticesOf(result);
+    assert.ok(notices.some((l) => l.includes('! SessionStart')));
+    assert.ok(notices.some((l) => l.includes('! SubagentStart')));
+  });
+
+  test('settings.json is broken JSON: reported as unreadable rather than "not registered", and migrate does not throw', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    const dir = path.join(root, '.claude');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, 'settings.json'), '{ this is not valid json', 'utf8');
+
+    let result;
+    assert.doesNotThrow(() => {
+      result = migrate(root);
+    });
+
+    assert.equal(result.success, true);
+    const notices = hookNoticesOf(result);
+    assert.ok(
+      notices.some((l) => l.includes('not valid JSON')),
+      `expected an unreadable-settings notice, got:\n${notices.join('\n')}`,
+    );
+    // Must not claim a specific event is "not registered" — that would assert
+    // something this step could not actually verify (see DESIGN-C).
+    assert.ok(!notices.some((l) => l.includes('! SessionStart')));
+    assert.ok(!notices.some((l) => l.includes('! SubagentStart')));
+  });
+
+  test('custom command forms are recognized as registered (no false "not registered")', () => {
+    const customCommands = [
+      'cd $CLAUDE_PROJECT_DIR && node ./.claude/skills/team-lessons/scripts/lessons-index.mjs',
+      'node /abs/path/to/project/.claude/skills/team-lessons/scripts/lessons-index.mjs',
+      'node $CLAUDE_PROJECT_DIR/.claude/skills/team-lessons/scripts/lessons-index.mjs',
+      'bash -c "node .claude/skills/team-lessons/scripts/lessons-index.mjs"',
+    ];
+
+    for (const command of customCommands) {
+      const root = makeProject();
+      applyMinimalManifest(root);
+      writeRawSettings(root, {
+        hooks: { SessionStart: [hookEntryFor(command)], SubagentStart: [hookEntryFor(command)] },
+      });
+
+      const result = migrate(root);
+      assert.deepEqual(
+        hookNoticesOf(result),
+        [],
+        `expected "${command}" to be recognized as an existing registration`,
+      );
+    }
+  });
+
+  test('a non-empty matcher and multiple matcher entries are still scanned', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    // The real command sits in the SECOND matcher entry, under a non-empty
+    // matcher — isHookRegisteredForEvent() must not stop at the first entry
+    // and must not filter on `matcher` at all (Issue #17: "matcher の値は問わ
+    // ない（全 matcher エントリを走査する）"). A regression that narrows the
+    // scan to `matcher: ''` only, or to the first entry only, would make this
+    // command invisible and wrongly report SessionStart as unregistered.
+    writeRawSettings(root, {
+      hooks: {
+        SessionStart: [
+          { matcher: 'Task', hooks: [{ type: 'command', command: 'node other.mjs' }] },
+          { matcher: 'startup|resume', hooks: [{ type: 'command', command: DEFAULT_COMMAND }] },
+        ],
+        SubagentStart: [hookEntryFor(DEFAULT_COMMAND)],
+      },
+    });
+
+    const result = migrate(root);
+
+    assert.deepEqual(
+      hookNoticesOf(result),
+      [],
+      'the SessionStart command in the second, non-empty-matcher entry must still count as registered',
+    );
+  });
+
+  test('malformed hooks shapes never throw and are treated as not registered', () => {
+    const malformedSettingsList = [
+      { hooks: { SessionStart: 'not-an-array' } },
+      { hooks: { SessionStart: ['not-an-object'] } },
+      { hooks: { SessionStart: [{ matcher: '', hooks: 'not-an-array' }] } },
+      { hooks: { SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 12345 }] }] } },
+      { hooks: { SessionStart: [{ matcher: '', hooks: [null] }] } },
+      { hooks: 'not-an-object' },
+      { hooks: null },
+    ];
+
+    for (const settings of malformedSettingsList) {
+      const root = makeProject();
+      applyMinimalManifest(root);
+      writeRawSettings(root, settings);
+
+      let result;
+      assert.doesNotThrow(() => {
+        result = migrate(root);
+      }, `should not throw for ${JSON.stringify(settings)}`);
+
+      assert.equal(result.success, true);
+      const notices = hookNoticesOf(result);
+      assert.ok(
+        notices.some((l) => l.includes('! SessionStart')),
+        `expected SessionStart to be reported unregistered for ${JSON.stringify(settings)}`,
+      );
+    }
+  });
+
+  test('.claude is byte-identical after a real run in every settings.json state', () => {
+    // Each scenario proves the SAME thing (a real run touches nothing under
+    // .claude/) but from a different settings.json starting state, because a
+    // regression could plausibly hide in just one branch — e.g. writing back
+    // only when the JSON is unparseable (readSettings()'s own doc comment in
+    // use.js notes "write will overwrite" as an existing pattern elsewhere in
+    // this codebase, which is exactly the kind of accidental reuse this guards
+    // against), or only when settings.json does not exist yet.
+    const scenarios = [
+      {
+        label: 'both hooks already registered',
+        setup: (root) =>
+          writeRawSettings(root, {
+            hooks: {
+              SessionStart: [hookEntryFor(DEFAULT_COMMAND)],
+              SubagentStart: [hookEntryFor(DEFAULT_COMMAND)],
+            },
+          }),
+        sanityCheck: (result) =>
+          assert.deepEqual(hookNoticesOf(result), [], 'sanity check: no notice expected for this scenario'),
+      },
+      {
+        label: 'only one hook registered',
+        setup: (root) => writeRawSettings(root, { hooks: { SessionStart: [hookEntryFor(DEFAULT_COMMAND)] } }),
+        sanityCheck: (result) =>
+          assert.ok(
+            hookNoticesOf(result).some((l) => l.includes('! SubagentStart')),
+            'sanity check: a notice actually fired',
+          ),
+      },
+      {
+        label: 'settings.json is broken JSON',
+        setup: (root) => {
+          const dir = path.join(root, '.claude');
+          mkdirSync(dir, { recursive: true });
+          // The broken bytes themselves are part of what "byte-identical" must
+          // cover here: the fix, if any, is the user's to make by hand.
+          writeFileSync(path.join(dir, 'settings.json'), '{ this is not valid json', 'utf8');
+        },
+        sanityCheck: (result) =>
+          assert.ok(
+            hookNoticesOf(result).some((l) => l.includes('not valid JSON')),
+            'sanity check: the unreadable-settings notice actually fired',
+          ),
+      },
+      {
+        label: 'settings.json absent',
+        setup: () => {}, // no file written at all
+        // Snapshot equality (before/after the run under test) alone CANNOT
+        // prove settings.json was never created: the warm-up `migrate(root)`
+        // call below runs BEFORE `before` is captured, so if a regression made
+        // the absent-file branch create settings.json, the warm-up run would
+        // create it and `before` would already show it present — the run
+        // under test would then see it as already existing and never trip the
+        // absent branch at all, leaving before/after equal despite the bug.
+        // Asserting non-existence directly, on the ACTUAL project root (not
+        // the warm-up-affected one), is what closes that hole — see the
+        // dedicated warm-up-free test below for the same reasoning applied
+        // end-to-end.
+        sanityCheck: (result, root) => {
+          assert.equal(
+            existsSync(path.join(root, '.claude', 'settings.json')),
+            false,
+            'migrate() must never CREATE settings.json',
+          );
+          assert.ok(hookNoticesOf(result).some((l) => l.includes('! SessionStart')));
+          assert.ok(hookNoticesOf(result).some((l) => l.includes('! SubagentStart')));
+        },
+      },
+    ];
+
+    for (const { label, setup, sanityCheck } of scenarios) {
+      const root = makeProject();
+      applyMinimalManifest(root);
+      migrate(root); // scaffold team-lessons fully first, so the run under test adds nothing else
+      setup(root);
+
+      const dotClaudeDir = path.join(root, '.claude');
+      const before = snapshotDir(dotClaudeDir);
+      const result = migrate(root); // real (non-dry) run — the one under test
+      const after = snapshotDir(dotClaudeDir);
+
+      assert.deepEqual(after, before, `[${label}] migrate() must not write anything under .claude/`);
+      sanityCheck(result, root);
+    }
+  });
+
+  test('migrate() never creates .claude/settings.json when it is absent (real run and dry-run)', () => {
+    // There IS a warm-up migrate() below (line: "scaffold team-lessons fully
+    // first"), so this test cannot claim the run under test is the only call
+    // against the project. What closes that gap is the sanity assert on the
+    // line right after it: it fails if the warm-up itself created
+    // settings.json, so a warm-up creation can never masquerade as the run
+    // under test staying clean. Each iteration also uses a FRESH project, so
+    // the real run cannot leak a created file into the dry-run iteration.
+    for (const dryRun of [false, true]) {
+      const root = makeProject();
+      applyMinimalManifest(root);
+      migrate(root); // scaffold team-lessons fully first (a separate, prior project state)
+      const settingsPath = path.join(root, '.claude', 'settings.json');
+      assert.equal(existsSync(settingsPath), false, 'sanity check: absent before the run under test');
+
+      const result = migrate(root, { dryRun }); // the run under test
+
+      assert.equal(
+        existsSync(settingsPath),
+        false,
+        `migrate(root, { dryRun: ${dryRun} }) must never create .claude/settings.json`,
+      );
+      assert.ok(hookNoticesOf(result).some((l) => l.includes('! SessionStart')), `dryRun=${dryRun}: sanity check`);
+      assert.ok(hookNoticesOf(result).some((l) => l.includes('! SubagentStart')), `dryRun=${dryRun}: sanity check`);
+    }
+  });
+
+  test('dry-run and a real run report identical hook notices, before and after team-lessons is scaffolded', () => {
+    const scenarios = [
+      { hooks: {} },
+      { hooks: { SessionStart: [hookEntryFor(DEFAULT_COMMAND)] } },
+      { hooks: { SubagentStart: [hookEntryFor(DEFAULT_COMMAND)] } },
+      {
+        hooks: {
+          SessionStart: [hookEntryFor(DEFAULT_COMMAND)],
+          SubagentStart: [hookEntryFor(DEFAULT_COMMAND)],
+        },
+      },
+    ];
+
+    for (const settings of scenarios) {
+      // Case A — team-lessons has never been scaffolded (fresh project): this is
+      // the DESIGN-D regression case, where a naive existsSync() on
+      // scripts/lessons-index.mjs would disagree between dry-run and a real run.
+      const freshRoot = makeProject();
+      applyMinimalManifest(freshRoot);
+      writeRawSettings(freshRoot, settings);
+      assert.deepEqual(
+        hookNoticesOf(migrate(freshRoot, { dryRun: true })),
+        hookNoticesOf(migrate(freshRoot, { dryRun: false })),
+        `pre-scaffold case disagreed for ${JSON.stringify(settings)}`,
+      );
+
+      // Case B — team-lessons was already scaffolded by an earlier migrate().
+      const scaffoldedRoot = makeProject();
+      applyMinimalManifest(scaffoldedRoot);
+      migrate(scaffoldedRoot);
+      writeRawSettings(scaffoldedRoot, settings);
+      assert.deepEqual(
+        hookNoticesOf(migrate(scaffoldedRoot, { dryRun: true })),
+        hookNoticesOf(migrate(scaffoldedRoot, { dryRun: false })),
+        `post-scaffold case disagreed for ${JSON.stringify(settings)}`,
+      );
+    }
+  });
+
+  test('a hook-only notice does not change exitCode semantics under --dry-run', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    migrate(root); // scaffold everything first, so only the hook step can produce a notice
+    writeRawSettings(root, { hooks: {} }); // both events unregistered
+
+    const dryResult = migrate(root, { dryRun: true });
+
+    assert.ok(hookNoticesOf(dryResult).length > 0, 'sanity check: a notice actually fired');
+    assert.equal(dryResult.pending, 0, 'a notice-only finding must not count as pending work');
+    assert.equal(dryResult.exitCode, 0, 'notices must not flip exitCode — only addable files do');
   });
 });
 
