@@ -655,11 +655,66 @@ describe('migrate() — team-lessons hook detection', () => {
     assert.equal(result.success, true);
     const notices = hookNoticesOf(result);
     assert.ok(
-      notices.some((l) => l.includes('not valid JSON')),
+      notices.some((l) => l.includes('could not be read or parsed as JSON')),
       `expected an unreadable-settings notice, got:\n${notices.join('\n')}`,
     );
     // Must not claim a specific event is "not registered" — that would assert
     // something this step could not actually verify (see DESIGN-C).
+    assert.ok(!notices.some((l) => l.includes('! SessionStart')));
+    assert.ok(!notices.some((l) => l.includes('! SubagentStart')));
+  });
+
+  test('settings.json unreadable for a NON-JSON reason: the notice reports the read failure without blaming JSON syntax', async () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    // A directory sitting at .claude/settings.json makes fs.readFileSync throw
+    // EISDIR — a read failure that is emphatically NOT a JSON syntax error,
+    // yet reaches the exact same `unreadable: true` branch, because
+    // readSettingsForHookDetection wraps readFileSync and JSON.parse in ONE
+    // try block. The notice therefore may not name invalid JSON as the cause:
+    // that branch never distinguished which of the two steps failed.
+    mkdirSync(path.join(root, '.claude', 'settings.json'), { recursive: true });
+
+    let result;
+    await assert.doesNotReject(async () => {
+      result = await migrate(root);
+    });
+
+    assert.equal(result.success, true);
+    const notices = hookNoticesOf(result);
+    // (a) the read failure is actually reported ...
+    assert.ok(
+      notices.some((l) => l.includes('could not be read or parsed as JSON')),
+      `expected an unreadable-settings notice, got:\n${notices.join('\n')}`,
+    );
+    // ... and (b) it is not reported as a JSON syntax error, which is what this
+    // scenario proves it is not.
+    assert.ok(
+      !notices.some((l) => /not valid JSON|invalid JSON/i.test(l)),
+      `the notice must not assert a JSON syntax error it never checked for, got:\n${notices.join('\n')}`,
+    );
+    // ... and (c) the ADVICE line carries the same restraint as the heading.
+    // Checking only (a) and (b) leaves a real regression uncaught: a heading
+    // reading "could not be read or parsed as JSON" followed by advice reading
+    // only "Fix the JSON syntax" passes both of the assertions above (neither
+    // matches "not valid JSON"/"invalid JSON") while still sending a user whose
+    // settings.json is a directory or is chmod 000 off to hunt for a syntax
+    // error that does not exist. Measured, not assumed: reverting just that one
+    // line left all 48 tests in this file green before this assertion existed.
+    assert.ok(
+      notices.some((l) => /readable/i.test(l)),
+      `the advice must also point at the read-failure possibility, not only at JSON syntax, got:\n${notices.join('\n')}`,
+    );
+    // ... and (d) the OTHER half of that advice survives too. (c) alone pins
+    // only the readable side, so narrowing the advice to "Check that the file
+    // is readable" — dropping the JSON-syntax half — passes every assertion
+    // above while stranding the user whose settings.json really is malformed,
+    // which is the far more common case. Measured, not assumed: that exact
+    // mutation left all 205 tests green before this assertion existed.
+    assert.ok(
+      notices.some((l) => /JSON syntax/i.test(l)),
+      `the advice must keep BOTH possibilities — dropping the JSON-syntax half strands a user whose settings.json really is malformed, got:\n${notices.join('\n')}`,
+    );
     assert.ok(!notices.some((l) => l.includes('! SessionStart')));
     assert.ok(!notices.some((l) => l.includes('! SubagentStart')));
   });
@@ -787,7 +842,7 @@ describe('migrate() — team-lessons hook detection', () => {
         },
         sanityCheck: (result) =>
           assert.ok(
-            hookNoticesOf(result).some((l) => l.includes('not valid JSON')),
+            hookNoticesOf(result).some((l) => l.includes('could not be read or parsed as JSON')),
             'sanity check: the unreadable-settings notice actually fired',
           ),
       },
