@@ -3,11 +3,12 @@
  * ccteams — Claude Code agent-team package manager
  *
  * Commands:
- *   list [--json]   List available teams
- *   use <team>      Apply (stack) a team onto the current project
- *   unuse <team>    Remove one applied team from the current project
- *   current         Show the currently-applied teams
- *   upgrade         Upgrade ccteams to the latest version via npm
+ *   list [--json]      List available teams
+ *   use <team>         Apply (stack) a team onto the current project
+ *   unuse <team>       Remove one applied team from the current project
+ *   current            Show the currently-applied teams
+ *   migrate [--dry-run]  Pick up files a newer ccteams ships that this project is missing
+ *   upgrade            Upgrade ccteams to the latest version via npm
  */
 
 import fs from 'fs';
@@ -18,6 +19,7 @@ import { listTeams } from '../lib/teams.js';
 import { readManifest } from '../lib/manifest.js';
 import { useTeam } from '../lib/use.js';
 import { unuseTeam } from '../lib/unuse.js';
+import { migrate } from '../lib/migrate.js';
 import { maybeNotifyFromCache, refreshCacheInBackground } from '../lib/update-check.js';
 
 // Read the version from package.json (single source of truth), resolved relative
@@ -194,6 +196,28 @@ if (command === 'unuse') {
   process.exit(0);
 }
 
+// ── migrate ──────────────────────────────────────────────────────────────────
+if (command === 'migrate') {
+  const migrateArgs = args.slice(1);
+  const dryRun = migrateArgs.includes('--dry-run');
+  const unknownArgs = migrateArgs.filter((a) => a !== '--dry-run');
+
+  if (unknownArgs.length > 0) {
+    console.error(`Unknown option(s) for "ccteams migrate": ${unknownArgs.join(', ')}\n`);
+    console.error('Usage: ccteams migrate [--dry-run]');
+    process.exit(1);
+  }
+
+  const result = migrate(process.cwd(), { dryRun });
+  if (!result.success) {
+    console.error(`Error: ${result.message}`);
+    process.exit(1);
+  }
+  console.log(result.message);
+  notifyIfUpdate();
+  process.exit(result.exitCode);
+}
+
 // ── upgrade ───────────────────────────────────────────────────────────────────
 if (command === 'upgrade') {
   console.log(`Upgrading ccteams (current: ${currentVersion})...`);
@@ -227,6 +251,8 @@ Usage:
   ccteams use <team> --agent-teams    Apply a team AND enable agent-teams mode
   ccteams unuse <team>                Remove one applied team from the current project
   ccteams current                     Show all currently-applied teams
+  ccteams migrate                     Add files a newer ccteams ships that this project is missing
+  ccteams migrate --dry-run           Preview only; exits 1 if anything is missing (nothing is written)
   ccteams upgrade                     Upgrade ccteams to the latest npm version
   ccteams --version                   Print the ccteams version
 
@@ -248,6 +274,11 @@ Agent teams mode:
   It uses Claude Code's experimental agent-teams feature and takes effect after you
   restart the session.
 
+Migrate:
+  Run "ccteams migrate" in the project's MAIN checkout, not a worktree — it writes
+  into that checkout's .claude/, and a worktree's .claude/ is typically untracked
+  and discarded when the worktree is removed. It never overwrites an existing file.
+
 Examples:
   ccteams list
   ccteams use generalist
@@ -256,6 +287,7 @@ Examples:
   ccteams use --agent-teams rails
   ccteams unuse frontend
   ccteams current
+  ccteams migrate
   ccteams upgrade
 `.trimStart();
 
