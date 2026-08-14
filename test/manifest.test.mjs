@@ -14,6 +14,7 @@ import {
   writeManifest,
   resolvePlacedFiles,
   resolveFileHashes,
+  resolvePlacedPath,
 } from '../lib/manifest.js';
 
 const makeProject = () => mkdtempSync(path.join(tmpdir(), 'ccteams-manifest-'));
@@ -176,6 +177,303 @@ describe('writeManifest() re-roots a stale-root absolute path before relativizin
     for (const key of [...Object.keys(entry.fileHashes), ...entry.placedFiles]) {
       assert.ok(!key.includes('..'), `stored path must not climb out of projectRoot: ${key}`);
     }
+  });
+});
+
+describe('manifest entries are confined to projectRoot', () => {
+  // An absolute path OUTSIDE the project with no ".claude/" segment for
+  // resolvePlacedPath() to re-root on — the case its rescue cannot save.
+  const outsideAbs = () => path.join(tmpdir(), 'ccteams-outside-project', 'stolen.md');
+  // A relative entry that climbs out of the project.
+  const outsideRel = () => path.join('..', '..', 'escaped.md');
+
+  test('an out-of-project absolute entry is not written to the manifest', () => {
+    const root = makeProject();
+    const escapee = outsideAbs();
+
+    writeManifest(root, {
+      teams: {
+        generalist: {
+          appliedAt: new Date().toISOString(),
+          placedFiles: [escapee],
+          fileHashes: { [escapee]: 'deadbeef' },
+          agentTeams: false,
+        },
+      },
+    });
+
+    const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+    assert.deepEqual(entry.placedFiles, []);
+    assert.deepEqual(Object.keys(entry.fileHashes), []);
+  });
+
+  test('a relative entry that climbs out of the project is not written either', () => {
+    const root = makeProject();
+    const escapee = outsideRel();
+
+    writeManifest(root, {
+      teams: {
+        generalist: {
+          appliedAt: new Date().toISOString(),
+          placedFiles: [escapee],
+          fileHashes: { [escapee]: 'deadbeef' },
+          agentTeams: false,
+        },
+      },
+    });
+
+    const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+    assert.deepEqual(entry.placedFiles, []);
+    assert.deepEqual(Object.keys(entry.fileHashes), []);
+  });
+
+  test('legitimate entries survive alongside escaping ones — only the escapees are dropped', () => {
+    const root = makeProject();
+    const goodAbs = path.join(root, '.claude', 'agents', 'builder.md');
+    const goodRel = path.join('.claude', 'skills', 'working-method', 'SKILL.md');
+    const goodRelExpected = goodRel;
+    const goodAbsExpected = path.join('.claude', 'agents', 'builder.md');
+
+    writeManifest(root, {
+      teams: {
+        generalist: {
+          appliedAt: new Date().toISOString(),
+          placedFiles: [goodAbs, outsideAbs(), goodRel, outsideRel()],
+          fileHashes: {
+            [goodAbs]: 'aaa',
+            [outsideAbs()]: 'bbb',
+            [goodRel]: 'ccc',
+            [outsideRel()]: 'ddd',
+          },
+          agentTeams: false,
+        },
+      },
+    });
+
+    const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+    assert.deepEqual(entry.placedFiles, [goodAbsExpected, goodRelExpected]);
+    assert.deepEqual(entry.fileHashes, { [goodAbsExpected]: 'aaa', [goodRelExpected]: 'ccc' });
+    for (const key of [...Object.keys(entry.fileHashes), ...entry.placedFiles]) {
+      assert.ok(!key.startsWith('..'), `stored path must not climb out of projectRoot: ${key}`);
+    }
+  });
+
+  test('placedFiles and fileHashes reach the SAME verdict for the same entry', () => {
+    const root = makeProject();
+    const entries = [
+      path.join(root, '.claude', 'agents', 'builder.md'),
+      path.join('.claude', 'agents', 'reviewer.md'),
+      path.join(tmpdir(), 'some-other-original-location', '.claude', 'agents', 'x.md'),
+      outsideAbs(),
+      outsideRel(),
+    ];
+
+    writeManifest(root, {
+      teams: {
+        generalist: {
+          appliedAt: new Date().toISOString(),
+          placedFiles: entries,
+          fileHashes: Object.fromEntries(entries.map((f) => [f, 'deadbeef'])),
+          agentTeams: false,
+        },
+      },
+    });
+
+    const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+    // Neither list may keep an entry the other dropped.
+    assert.deepEqual(new Set(Object.keys(entry.fileHashes)), new Set(entry.placedFiles));
+    assert.equal(entry.placedFiles.length, 3);
+  });
+
+  test('an entry merely NAMED with leading dots (..keep.md) directly in the project root is kept', () => {
+    const root = makeProject();
+
+    writeManifest(root, {
+      teams: {
+        generalist: {
+          appliedAt: new Date().toISOString(),
+          placedFiles: ['..keep.md'],
+          agentTeams: false,
+        },
+      },
+    });
+
+    // The relative form here IS "..keep.md" — it begins with ".." yet never
+    // leaves the project. This is the case that separates the whole-segment
+    // test (rel === '..' || rel.startsWith('..' + sep)) from a plain
+    // rel.startsWith('..') prefix test, which would wrongly drop this file.
+    // Nesting it under ".claude/" would NOT test that: the relative form
+    // becomes ".claude\\..keep.md", which no longer starts with "..".
+    const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+    assert.deepEqual(entry.placedFiles, ['..keep.md']);
+  });
+
+  test('a leading-dots name nested under .claude/ is kept too', () => {
+    const root = makeProject();
+    const nested = path.join('.claude', '..keep.md');
+
+    writeManifest(root, {
+      teams: {
+        generalist: {
+          appliedAt: new Date().toISOString(),
+          placedFiles: [nested],
+          agentTeams: false,
+        },
+      },
+    });
+
+    const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+    assert.deepEqual(entry.placedFiles, [nested]);
+  });
+
+  test('an absolute entry whose ".claude/" segment is followed by "../.." is re-rooted INTO an escape, and is dropped', () => {
+    const root = makeProject();
+    // Built by joining with path.sep rather than path.join(), on purpose:
+    // path.join() would collapse the "../.." at construction time and strip
+    // the ".claude" segment out of the string entirely, so the input would
+    // never reach resolvePlacedPath()'s re-rooting branch — the very branch
+    // under test. A manifest read from disk is an arbitrary string that has
+    // had no such normalization applied to it.
+    const escapee = [tmpdir(), 'evil', '.claude', '..', '..', '..', 'stolen.md'].join(path.sep);
+
+    // Establishes the premise: the re-rooting rescue fires here and MANUFACTURES
+    // a path outside the project (root/.claude/../../../stolen.md climbs out).
+    // Containment is what turns that into a dropped entry.
+    const rerooted = resolvePlacedPath(escapee, root);
+    assert.ok(!rerooted.startsWith(root + path.sep), 're-rooting must have produced an escaping path');
+
+    writeManifest(root, {
+      teams: {
+        generalist: {
+          appliedAt: new Date().toISOString(),
+          placedFiles: [escapee],
+          fileHashes: { [escapee]: 'deadbeef' },
+          agentTeams: false,
+        },
+      },
+    });
+
+    const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+    assert.deepEqual(entry.placedFiles, []);
+    assert.deepEqual(Object.keys(entry.fileHashes), []);
+    assert.deepEqual(resolvePlacedFiles([escapee], root), []);
+  });
+
+  test('an absolute entry that starts with projectRoot but climbs out via ".." segments is dropped', () => {
+    const root = makeProject();
+    // Built by joining with path.sep rather than path.join(), on purpose:
+    // path.join() would collapse the ".." at construction time and leave an
+    // ordinary in-project path, so the branch under test would never be hit.
+    // A manifest read from disk is an arbitrary string with no such
+    // normalization applied to it.
+    const sneaky = [root, '.claude', '..', '..', 'stolen.md'].join(path.sep);
+
+    // Establishes the premise, and pins the design decision recorded in
+    // isContained()'s doc comment: as a STRING this entry looks project-local,
+    // so resolvePlacedPath() takes its "already under this root" early return
+    // and hands the value back verbatim, WITHOUT normalizing it. A containment
+    // check written as `resolved.startsWith(projectRoot + path.sep)` would
+    // therefore wave it through. Only path.relative()'s normalization sees the
+    // "../.." climb — which is exactly why isContained() is written on
+    // path.relative() and not on a string-prefix comparison.
+    assert.ok(sneaky.startsWith(root + path.sep), 'premise: the string looks project-local');
+    assert.equal(
+      resolvePlacedPath(sneaky, root),
+      sneaky,
+      'premise: returned verbatim by the early-return branch, unnormalized',
+    );
+
+    writeManifest(root, {
+      teams: {
+        generalist: {
+          appliedAt: new Date().toISOString(),
+          placedFiles: [sneaky],
+          fileHashes: { [sneaky]: 'deadbeef' },
+          agentTeams: false,
+        },
+      },
+    });
+
+    const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+    assert.deepEqual(entry.placedFiles, []);
+    assert.deepEqual(Object.keys(entry.fileHashes), []);
+    assert.deepEqual(resolvePlacedFiles([sneaky], root), []);
+    assert.equal(resolveFileHashes({ fileHashes: { [sneaky]: 'deadbeef' } }, root).size, 0);
+  });
+
+  test(
+    'an absolute entry on a different Windows drive is dropped (path.relative returns an absolute path)',
+    { skip: process.platform !== 'win32' ? 'Windows-only: only win32 has per-drive roots' : false },
+    () => {
+      const root = makeProject();
+      // Pick a drive letter that is NOT the project's, so path.relative()
+      // cannot express the relationship and returns an absolute path — the
+      // case path.isAbsolute(rel) exists to catch.
+      const otherDrive = root.slice(0, 1).toUpperCase() === 'C' ? 'D:' : 'C:';
+      const escapee = path.join(otherDrive + path.sep, 'ccteams-outside-project', 'stolen.md');
+      assert.ok(path.isAbsolute(path.relative(root, escapee)), 'premise: rel must be absolute here');
+
+      writeManifest(root, {
+        teams: {
+          generalist: {
+            appliedAt: new Date().toISOString(),
+            placedFiles: [escapee],
+            fileHashes: { [escapee]: 'deadbeef' },
+            agentTeams: false,
+          },
+        },
+      });
+
+      const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+      assert.deepEqual(entry.placedFiles, []);
+      assert.deepEqual(Object.keys(entry.fileHashes), []);
+      assert.deepEqual(resolvePlacedFiles([escapee], root), []);
+    },
+  );
+
+  test('an entry that resolves to projectRoot itself (a directory, never a placed file) is dropped', () => {
+    const root = makeProject();
+    const selves = ['.', '', root];
+
+    writeManifest(root, {
+      teams: {
+        generalist: {
+          appliedAt: new Date().toISOString(),
+          placedFiles: selves,
+          fileHashes: Object.fromEntries(selves.map((f) => [f, 'deadbeef'])),
+          agentTeams: false,
+        },
+      },
+    });
+
+    const entry = JSON.parse(readFileSync(manifestPath(root), 'utf8')).teams.generalist;
+    assert.deepEqual(entry.placedFiles, []);
+    assert.deepEqual(Object.keys(entry.fileHashes), []);
+    assert.deepEqual(resolvePlacedFiles(selves, root), []);
+  });
+
+  test('resolvePlacedFiles() drops entries that resolve outside projectRoot', () => {
+    const root = makeProject();
+    const goodRel = path.join('.claude', 'agents', 'builder.md');
+
+    const resolved = resolvePlacedFiles([goodRel, outsideAbs(), outsideRel()], root);
+
+    // unuse.js deletes every path this returns, so an escapee here would be a
+    // delete outside the project.
+    assert.deepEqual(resolved, [path.join(root, goodRel)]);
+  });
+
+  test('resolveFileHashes() drops keys that resolve outside projectRoot', () => {
+    const root = makeProject();
+    const goodRel = path.join('.claude', 'agents', 'builder.md');
+
+    const resolved = resolveFileHashes(
+      { fileHashes: { [goodRel]: 'aaa', [outsideAbs()]: 'bbb', [outsideRel()]: 'ccc' } },
+      root,
+    );
+
+    assert.equal(resolved.size, 1);
+    assert.equal(resolved.get(path.join(root, goodRel)), 'aaa');
   });
 });
 
