@@ -6,11 +6,21 @@
  * A single-file team-lessons skill grows without bound: every accepted lesson
  * appends several paragraphs, and the whole file is loaded into context on every
  * task that consults it. Splitting it — one lesson per file under `lessons/`,
- * with `SKILL.md` holding only a one-line "symptom → correct move" index —
- * caps the always-loaded cost at one line per lesson while keeping the detail
- * one click away. A hand-written index drifts the moment a lesson is added or
- * reworded, so the index is generated from each lesson's own frontmatter
- * (`symptom` / `summary`) instead of being maintained by hand.
+ * with `SKILL.md` holding only a short "when to read → symptom → correct move"
+ * index entry per lesson — caps the always-loaded cost at a few lines per
+ * lesson while keeping the detail one click away. A hand-written index drifts
+ * the moment a lesson is added or reworded, so the index is generated from
+ * each lesson's own frontmatter (`applies_when` / `symptom` / `summary`)
+ * instead of being maintained by hand.
+ *
+ * `applies_when` leads each entry so an agent scanning the index can rule a
+ * lesson out from its first line: a `symptom`-only heading describes the
+ * failure as it was first noticed, which is often narrower than every
+ * situation the lesson actually applies to, and a reader who doesn't
+ * recognize that exact symptom skips a lesson that would have applied. Lessons
+ * written before this field existed have no `applies_when`; the index falls
+ * back to the older symptom-only heading for those rather than treating the
+ * missing field as a hard error (see `loadLessons`).
  *
  * The generated index is COMMITTED (agents read the repo, not a build output),
  * and `--check` re-derives it to prove the committed copy still matches
@@ -28,7 +38,7 @@
  *   folder is self-contained and the script runs correctly from anywhere.
  * - Plain Node ESM with zero dependencies: the skill must work in projects that
  *   have no build step and no package manager at all. The frontmatter parser is
- *   a deliberately small hand-rolled one — the schema is five known keys, which
+ *   a deliberately small hand-rolled one — the schema is six known keys, which
  *   does not justify pulling in a YAML library.
  */
 
@@ -114,8 +124,16 @@ export function parseFrontmatter(content) {
  * Missing or duplicated `id`, and empty `symptom` / `summary`, are hard errors:
  * they would otherwise surface as a blank link or a silently reordered index.
  *
+ * `applies_when` is treated more leniently: it is the field the index leads
+ * with, but a repo may already have lessons written before this field existed.
+ * Failing the whole catalog build over a missing `applies_when` would break
+ * `--check` for every project that adopts this generator version, so a missing
+ * or empty `applies_when` only prints a warning to stderr (naming the file) and
+ * falls back to an empty string; `renderCatalog` uses that to pick the legacy
+ * symptom-only heading for that entry instead of throwing.
+ *
  * @param {string} lessonsDir absolute path to the lessons directory
- * @returns {{ file: string, id: number, symptom: string, summary: string }[]}
+ * @returns {{ file: string, id: number, symptom: string, summary: string, appliesWhen: string }[]}
  */
 export function loadLessons(lessonsDir) {
   const fileNames = readdirSync(lessonsDir)
@@ -135,11 +153,19 @@ export function loadLessons(lessonsDir) {
       }
     }
 
+    const appliesWhen = typeof frontmatter.applies_when === 'string' ? frontmatter.applies_when : '';
+    if (!appliesWhen) {
+      console.error(
+        `${file}: frontmatter "applies_when" is missing or empty — falling back to the legacy symptom-only index heading for this lesson. Add "applies_when: <when to read this>" when you next touch it.`,
+      );
+    }
+
     return {
       file,
       id,
       symptom: /** @type {string} */ (frontmatter.symptom),
       summary: /** @type {string} */ (frontmatter.summary),
+      appliesWhen,
     };
   });
 
@@ -156,16 +182,48 @@ export function loadLessons(lessonsDir) {
 }
 
 /**
- * Render the index body: one numbered line per lesson, shaped as
- * "symptom (linked to the detail file) → one-line correct move".
+ * Render the index body: one numbered entry per lesson, headed by WHEN to read
+ * it so a scan of the index can rule a lesson out from its first line, with
+ * `symptom` (linked to the detail file) and `summary` as a two-line sub-list:
  *
- * @param {{ file: string, id: number, symptom: string, summary: string }[]} lessons
+ *   1. **<applies_when>**
+ *      - symptom: [<symptom>](lessons/NN-slug.md)
+ *      - summary: <summary>
+ *
+ * Lessons written before `applies_when` existed (see `loadLessons`) render in
+ * the older, backward-compatible heading instead, with only `summary` below it:
+ *
+ *   1. **[<symptom>](lessons/NN-slug.md)**
+ *      - summary: <summary>
+ *
+ * The sub-list lines are indented to `String(id).length + 2` spaces — the
+ * width of that item's own `N. ` ordered-list marker (`1. ` / `9. ` = 3,
+ * `10. ` = 4, `100. ` = 5, …) — NOT a flat 3 spaces. CommonMark (and GitHub's
+ * renderer) only treats a continuation line as part of the list item — nested
+ * under it, rather than a separate top-level paragraph that also splits the
+ * ordered list into two — when it is indented to at least the marker's own
+ * width. A flat 3-space indent nests correctly for single-digit ids (where the
+ * marker width IS 3) but under-indents by one column as soon as an id reaches
+ * two digits, silently breaking the nesting (and the list) for that entry.
+ *
+ * @param {{ file: string, id: number, symptom: string, summary: string, appliesWhen: string }[]} lessons
  * @returns {string}
  */
 export function renderCatalog(lessons) {
   if (lessons.length === 0) return EMPTY_CATALOG;
   return lessons
-    .map((lesson) => `${lesson.id}. **[${lesson.symptom}](lessons/${lesson.file})** → ${lesson.summary}`)
+    .map((lesson) => {
+      const indent = ' '.repeat(String(lesson.id).length + 2);
+      const symptomLink = `[${lesson.symptom}](lessons/${lesson.file})`;
+      if (lesson.appliesWhen) {
+        return [
+          `${lesson.id}. **${lesson.appliesWhen}**`,
+          `${indent}- symptom: ${symptomLink}`,
+          `${indent}- summary: ${lesson.summary}`,
+        ].join('\n');
+      }
+      return [`${lesson.id}. **${symptomLink}**`, `${indent}- summary: ${lesson.summary}`].join('\n');
+    })
     .join('\n');
 }
 

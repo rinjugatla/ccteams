@@ -109,15 +109,102 @@ describe('loadLessons', () => {
     });
     assert.throws(() => loadLessons(dir), /duplicate id/);
   });
+
+  test('returns the "applies_when" value when the frontmatter has it', () => {
+    const dir = makeLessonsDir({
+      '01-a.md': '---\nid: 1\nslug: a\napplies_when: When W A\nsymptom: S A\nsummary: M A\n---\n',
+    });
+    assert.equal(loadLessons(dir)[0].appliesWhen, 'When W A');
+  });
+
+  test('does not throw when "applies_when" is missing (back-compat for pre-existing lessons)', () => {
+    const dir = makeLessonsDir({
+      '01-a.md': '---\nid: 1\nslug: a\nsymptom: S A\nsummary: M A\n---\n',
+    });
+    assert.doesNotThrow(() => loadLessons(dir));
+    assert.equal(loadLessons(dir)[0].appliesWhen, '');
+  });
+
+  test('does not throw when "applies_when" is present but empty (key with no value)', () => {
+    const dir = makeLessonsDir({
+      '01-a.md': '---\nid: 1\nslug: a\napplies_when:\nsymptom: S A\nsummary: M A\n---\n',
+    });
+    assert.doesNotThrow(() => loadLessons(dir));
+    assert.equal(loadLessons(dir)[0].appliesWhen, '');
+  });
 });
 
 describe('renderCatalog', () => {
-  test('renders a numbered "symptom (link) → correct move" list', () => {
+  test('renders an entry with applies_when as "<applies_when>" heading + symptom/summary sub-list', () => {
     const catalog = renderCatalog([
-      { id: 1, file: '01-a.md', symptom: 'S A', summary: 'M A' },
-      { id: 2, file: '02-b.md', symptom: 'S B', summary: 'M B' },
+      { id: 1, file: '01-a.md', symptom: 'S A', summary: 'M A', appliesWhen: 'When W A' },
     ]);
-    assert.equal(catalog, '1. **[S A](lessons/01-a.md)** → M A\n2. **[S B](lessons/02-b.md)** → M B');
+    assert.equal(catalog, '1. **When W A**\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A');
+  });
+
+  test('renders an entry without applies_when in the legacy "[symptom]" heading + summary-only sub-list', () => {
+    const catalog = renderCatalog([{ id: 1, file: '01-a.md', symptom: 'S A', summary: 'M A', appliesWhen: '' }]);
+    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
+  });
+
+  test('renders a mixed list (with and without applies_when) correctly for each entry', () => {
+    const catalog = renderCatalog([
+      { id: 1, file: '01-a.md', symptom: 'S A', summary: 'M A', appliesWhen: 'When W A' },
+      { id: 2, file: '02-b.md', symptom: 'S B', summary: 'M B', appliesWhen: '' },
+    ]);
+    assert.equal(
+      catalog,
+      [
+        '1. **When W A**',
+        '   - symptom: [S A](lessons/01-a.md)',
+        '   - summary: M A',
+        '2. **[S B](lessons/02-b.md)**',
+        '   - summary: M B',
+      ].join('\n'),
+    );
+  });
+
+  // Sub-list indent must track the id's own "N. " marker width (id digits + 2),
+  // not a flat constant: a flat indent under-indents by one column as soon as
+  // an id reaches two digits, which breaks CommonMark's list nesting for that
+  // entry (verified against GitHub's renderer — see PR discussion).
+  for (const id of [1, 9, 10, 100]) {
+    test(`sub-list lines are indented to match the "${id}. " marker width (id ${id})`, () => {
+      const catalog = renderCatalog([
+        { id, file: `${id}-a.md`, symptom: 'S A', summary: 'M A', appliesWhen: 'When W A' },
+      ]);
+      const expectedIndent = ' '.repeat(String(id).length + 2);
+      const subLines = catalog.split('\n').slice(1);
+      assert.ok(subLines.length > 0);
+      for (const line of subLines) {
+        assert.ok(
+          line.startsWith(`${expectedIndent}- `),
+          `expected ${expectedIndent.length}-space indent for id ${id}, got: ${JSON.stringify(line)}`,
+        );
+        // And not one column short/long, so an off-by-one regression is caught
+        // even though it would still pass a bare startsWith() check above.
+        assert.equal(
+          line.length - line.trimStart().length,
+          expectedIndent.length,
+          `expected exactly ${expectedIndent.length} spaces for id ${id}, got: ${JSON.stringify(line)}`,
+        );
+      }
+    });
+  }
+
+  test('renders a two-digit id (10) in the new format with a 4-space sub-list indent', () => {
+    const catalog = renderCatalog([
+      { id: 10, file: '10-j.md', symptom: 'S J', summary: 'M J', appliesWhen: 'When W J' },
+    ]);
+    assert.equal(
+      catalog,
+      '10. **When W J**\n    - symptom: [S J](lessons/10-j.md)\n    - summary: M J',
+    );
+  });
+
+  test('renders a two-digit id (10) in the legacy format with a 4-space sub-list indent', () => {
+    const catalog = renderCatalog([{ id: 10, file: '10-j.md', symptom: 'S J', summary: 'M J', appliesWhen: '' }]);
+    assert.equal(catalog, '10. **[S J](lessons/10-j.md)**\n    - summary: M J');
   });
 
   test('renders the empty-state placeholder when there are no lessons', () => {
@@ -202,7 +289,7 @@ describe('resolvePaths', () => {
  * deleting `process.exitCode = 1` from main() must turn a test red.
  */
 describe('CLI', () => {
-  /** A temp team-lessons root: one lesson + a SKILL.md with bare markers. */
+  /** A temp team-lessons root: one lesson (no applies_when) + a SKILL.md with bare markers. */
   const makeRoot = () => {
     const root = mkdtempSync(path.join(tmpdir(), 'gen-lessons-cli-'));
     const lessonsDir = path.join(root, 'lessons');
@@ -210,6 +297,21 @@ describe('CLI', () => {
     writeFileSync(
       path.join(lessonsDir, '01-a.md'),
       '---\nid: 1\nslug: a\nsymptom: S A\nsummary: M A\n---\nbody\n',
+      'utf8',
+    );
+    const skillPath = path.join(root, 'SKILL.md');
+    writeFileSync(skillPath, `# T\n\n${CATALOG_START}\n${CATALOG_END}\n`, 'utf8');
+    return { root, skillPath };
+  };
+
+  /** Same shape as makeRoot(), but the lesson carries an `applies_when`. */
+  const makeRootWithAppliesWhen = () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'gen-lessons-cli-'));
+    const lessonsDir = path.join(root, 'lessons');
+    mkdirSync(lessonsDir, { recursive: true });
+    writeFileSync(
+      path.join(lessonsDir, '01-a.md'),
+      '---\nid: 1\nslug: a\napplies_when: When W A\nsymptom: S A\nsummary: M A\n---\nbody\n',
       'utf8',
     );
     const skillPath = path.join(root, 'SKILL.md');
@@ -233,9 +335,37 @@ describe('CLI', () => {
     const { root, skillPath } = makeRoot();
 
     assert.equal(run(root).status, 0);
-    assert.ok(readFileSync(skillPath, 'utf8').includes('**[S A](lessons/01-a.md)** → M A'));
+    assert.ok(readFileSync(skillPath, 'utf8').includes('**[S A](lessons/01-a.md)**\n   - summary: M A'));
 
     assert.equal(run(root, ['--check']).status, 0);
+  });
+
+  test('a lesson missing "applies_when" still lets --check exit 0, but warns on stderr', () => {
+    const { root } = makeRoot();
+
+    // Bring SKILL.md up to date first so --check has nothing to complain about
+    // except (via stderr) the missing field.
+    assert.equal(run(root).status, 0);
+
+    const result = run(root, ['--check']);
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /applies_when/);
+    assert.match(result.stderr, /01-a\.md/);
+  });
+
+  test('a lesson with "applies_when" renders the new heading, and --check stays exit 0', () => {
+    const { root, skillPath } = makeRootWithAppliesWhen();
+
+    assert.equal(run(root).status, 0);
+    assert.ok(
+      readFileSync(skillPath, 'utf8').includes(
+        '1. **When W A**\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A',
+      ),
+    );
+
+    const result = run(root, ['--check']);
+    assert.equal(result.status, 0);
+    assert.equal(result.stderr, '');
   });
 
   test('the shipped scaffold is already --check clean out of the box', () => {
