@@ -1096,7 +1096,11 @@ describe('Node 18 compatibility', () => {
   // import.meta.dirname is undefined on Node 18 (this repo's floor: "node": ">=18.0.0"
   // in package.json). Using it would throw at import time, before any try/catch could
   // help — see the identical rationale and pattern in test/lessons-index.test.mjs.
-  for (const relPath of [path.join('lib', 'migrate.js'), path.join('bin', 'ccteams.js')]) {
+  for (const relPath of [
+    path.join('lib', 'migrate.js'),
+    path.join('lib', 'manifest.js'),
+    path.join('bin', 'ccteams.js'),
+  ]) {
     test(`${relPath.split(path.sep).join('/')} does not use import.meta.dirname outside comments`, () => {
       const source = readFileSync(path.join(REPO_ROOT, relPath), 'utf8');
       const code = source
