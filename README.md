@@ -81,8 +81,8 @@ ccteams use <team>                # Apply (stack) a team onto the current projec
 ccteams use <team> --agent-teams  # Apply it AND enable agent-teams mode (optional)
 ccteams unuse <team>              # Remove one applied team, leaving any others in place
 ccteams current                   # Show all currently-applied teams
-ccteams migrate                   # Add files a newer ccteams ships that this project is missing
-ccteams migrate --dry-run         # Preview only — writes nothing; exits 1 if anything is missing
+ccteams migrate                   # Add files a newer ccteams ships; report an out-of-date SKILL.md
+ccteams migrate --dry-run         # Preview only — writes nothing; exits 1 if a file is missing
 ccteams --version                 # Print the version
 ```
 
@@ -242,13 +242,13 @@ Both `SessionStart` and `SubagentStart` are needed: `SessionStart` only fires fo
 `npm install -g ccteams@latest` upgrades the globally installed CLI, but it does **not** touch files ccteams already placed in your project — those only change when you run `ccteams use`, `ccteams unuse`, or `ccteams migrate`. `ccteams migrate` closes that gap for what it is safe for ccteams to add on its own:
 
 ```bash
-ccteams migrate              # add any missing files, then print a summary
-ccteams migrate --dry-run    # preview only — writes nothing; exits 1 if anything is missing
+ccteams migrate              # add any missing files, report an out-of-date SKILL.md, print a summary
+ccteams migrate --dry-run    # preview only — writes nothing; exits 1 if a file is missing
 ```
 
-- **What it does today:** adds any file missing from the scaffolded `.claude/skills/team-lessons/` skill (see above) — the same never-overwrite scaffold `ccteams use` runs, so a project that only ran `ccteams use` a while ago can pick up files a newer ccteams added to that skill (e.g. a new script) without re-applying a team.
+- **What it does today:** two things, both safe without touching hand-written content. It **adds** any file missing from the scaffolded `.claude/skills/team-lessons/` skill (see above) — the same never-overwrite scaffold `ccteams use` runs, so a project that only ran `ccteams use` a while ago can pick up files a newer ccteams added to that skill (e.g. a new script) without re-applying a team. And it **reports** an existing `.claude/skills/team-lessons/SKILL.md` whose catalog index is in an older layout — either lacking a usable marker pair (absent, or the end marker first), or with the generated note still between the markers. That file is yours: ccteams prints the command to run (`gen-lessons.mjs`, plus the markers to add first when they are absent) and never rewrites the file itself.
 - **Never-overwrite:** exactly like `ccteams use`'s team-lessons scaffold, `ccteams migrate` never rewrites or deletes an existing file — only files that are entirely absent are added.
-- **`--dry-run` writes nothing** and lists what would be added. It exits `1` when anything is pending (so it composes with CI drift-checks the same way `gen-lessons.mjs --check` does — see above) and exits `0` once the project is fully up to date.
+- **`--dry-run` writes nothing** and lists what would be added. It exits `1` when a file is pending and `0` when none are (so it composes with CI drift-checks the same way `gen-lessons.mjs --check` does — see above). **Notices do not affect the exit code:** a report that ends in a note about your `SKILL.md` still exits `0`, because the fix is a command only you can run — read the summary line, not just the exit code.
 - **Run it from the project's main checkout, not a worktree.** ccteams writes into `.claude/`, and a git worktree's `.claude/` is typically untracked local state that gets discarded when the worktree is removed — running `migrate` there would not persist the change back to the repo.
 - If ccteams is not applied in the current project (no `.claude/.ccteams-manifest.json`), `ccteams migrate` does nothing and exits `0`, pointing you at `ccteams use <team>` instead.
 

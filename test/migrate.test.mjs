@@ -17,6 +17,14 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { migrate, formatMigrateReport } from '../lib/migrate.js';
 import { manifestPath, writeManifest } from '../lib/manifest.js';
+import { TEAM_LESSONS_SCAFFOLD_DIR } from '../lib/use.js';
+import {
+  CATALOG_START,
+  CATALOG_END,
+  GENERATED_NOTE,
+  buildSkill,
+  renderCatalog,
+} from '../scaffold/team-lessons/scripts/gen-lessons.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = path.join(REPO_ROOT, 'bin', 'ccteams.js');
@@ -269,6 +277,244 @@ describe('migrate()', () => {
     assert.equal(result.exitCode, 1);
     assert.equal(result.pending, 0, 'must not report 5 addable files for a destination it cannot write to');
     assert.match(result.message, /team-lessons/);
+  });
+});
+
+describe('migrate() — team-lessons SKILL.md layout detection', () => {
+  /**
+   * The SKILL.md this package ships (the reference "current layout"),
+   * normalized to LF — git may check the template out with CRLF, and the
+   * fixture below rewrites the file around line boundaries (see the same note
+   * in scaffold-team-lessons.test.mjs).
+   */
+  const currentSkill = () =>
+    readFileSync(path.join(TEAM_LESSONS_SCAFFOLD_DIR, 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
+
+  /**
+   * Same file in the pre-0.4 layout: markers present and ordered, but the
+   * generated note still INSIDE them. Derived from the shipped template so the
+   * fixture cannot silently drift away from the real thing.
+   */
+  const legacyIndexSkill = () => {
+    const current = currentSkill();
+    const legacy = current.replace(
+      `${GENERATED_NOTE}\n${CATALOG_START}\n`,
+      `${CATALOG_START}\n${GENERATED_NOTE}\n`,
+    );
+    assert.notEqual(legacy, current, 'fixture is stale: the shipped SKILL.md changed shape');
+    return legacy;
+  };
+
+  /** A SKILL.md from before the index existed at all — no markers anywhere. */
+  const NO_MARKER_SKILL = `---
+name: team-lessons
+---
+
+## Failure catalog — symptom → wrong instinct → correct move
+
+1. **Something we learned** — do it the other way.
+`;
+
+  /**
+   * Both markers present but REVERSED (end before start) — the generator throws
+   * on this exactly as it does on a missing pair, so it must be reported as the
+   * unusable-markers case, not as the milder legacy-layout one.
+   */
+  const REVERSED_MARKER_SKILL = `---
+name: team-lessons
+---
+
+## Failure catalog
+
+${CATALOG_END}
+
+(none yet)
+${CATALOG_START}
+`;
+
+  /**
+   * The distinguishing phrase of each notice heading. Held as constants so the
+   * "these two are mutually exclusive" assertions cannot drift apart from the
+   * text lib/migrate.js actually emits.
+   */
+  const UNUSABLE_MARKERS_PHRASE = 'markers are missing or out of order';
+  const LEGACY_NOTE_PHRASE = 'the generated note is still inside';
+
+  const seedProject = (skillContent) => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    mkdirSync(teamLessonsDir(root), { recursive: true });
+    writeFileSync(path.join(teamLessonsDir(root), 'SKILL.md'), skillContent, 'utf8');
+    return root;
+  };
+
+  const noticesOf = (result) => result.steps[0].notices;
+
+  test('legacy layout (note inside the markers) is reported with a regenerate command', () => {
+    const root = seedProject(legacyIndexSkill());
+
+    const notices = noticesOf(migrate(root));
+
+    assert.ok(
+      notices.some((line) => line.includes(LEGACY_NOTE_PHRASE)),
+      `expected a legacy-layout notice, got:\n${notices.join('\n')}`,
+    );
+    // The advice is only actionable if it names the command to run.
+    assert.ok(
+      notices.some((line) => line.includes('scripts/gen-lessons.mjs')),
+      `expected the generator command in the notice, got:\n${notices.join('\n')}`,
+    );
+    // Exclusive with the unusable-markers case: the markers ARE there, in order,
+    // so the notice must not accuse them of being missing or misordered.
+    assert.ok(
+      !notices.some((line) => line.includes(UNUSABLE_MARKERS_PHRASE)),
+      `notice contradicts its own precondition:\n${notices.join('\n')}`,
+    );
+  });
+
+  test('no-marker layout is reported differently, and never as the legacy layout', () => {
+    const root = seedProject(NO_MARKER_SKILL);
+
+    const notices = noticesOf(migrate(root));
+
+    assert.ok(
+      notices.some((line) => line.includes(UNUSABLE_MARKERS_PHRASE)),
+      `expected an unusable-markers notice, got:\n${notices.join('\n')}`,
+    );
+    // Re-running the generator alone cannot fix this case, but the notice must
+    // still say what to run after the markers are added.
+    assert.ok(notices.some((line) => line.includes('scripts/gen-lessons.mjs')));
+    assert.ok(
+      !notices.some((line) => line.includes(LEGACY_NOTE_PHRASE)),
+      'the two legacy states must be reported exclusively',
+    );
+  });
+
+  test('reversed markers (END before START) are reported as unusable markers, not as the legacy layout', () => {
+    const root = seedProject(REVERSED_MARKER_SKILL);
+
+    const result = migrate(root);
+    const notices = noticesOf(result);
+
+    // Both markers are present, so only the ORDER check can catch this — this is
+    // what pins down the `endIndex > startIndex` half of the marker predicate.
+    assert.ok(
+      notices.some((line) => line.includes(UNUSABLE_MARKERS_PHRASE)),
+      `expected an unusable-markers notice, got:\n${notices.join('\n')}`,
+    );
+    assert.ok(
+      !notices.some((line) => line.includes(LEGACY_NOTE_PHRASE)),
+      'a reversed pair is not the "note in the wrong place" case',
+    );
+    // The generator would throw on this file, so the heading must not claim the
+    // markers are fine.
+    assert.ok(!notices.some((line) => line.includes('The markers themselves are fine')));
+  });
+
+  test('a note both outside AND inside the markers is still reported as the legacy layout', () => {
+    // The realistic shape of a half-finished manual migration: the user added
+    // the note above the start marker but never removed the old one below it.
+    const root = seedProject(
+      currentSkill().replace(`${CATALOG_START}\n`, `${CATALOG_START}\n${GENERATED_NOTE}\n`),
+    );
+
+    const notices = noticesOf(migrate(root));
+
+    assert.ok(
+      notices.some((line) => line.includes(LEGACY_NOTE_PHRASE)),
+      `expected a legacy-layout notice, got:\n${notices.join('\n')}`,
+    );
+  });
+
+  test('following the advice actually clears the notice', () => {
+    const root = seedProject(legacyIndexSkill());
+    const skillPath = path.join(teamLessonsDir(root), 'SKILL.md');
+    migrate(root); // installs the generator the notice tells the user to run
+
+    assert.ok(noticesOf(migrate(root)).length > 0, 'sanity check: the notice is present first');
+
+    // Do exactly what the advised command does — same functions, from the same
+    // generator ccteams ships — instead of spawning it, so this stays a unit
+    // test. If buildSkill() ever stops moving the note out of the markers, the
+    // advice becomes false and this test is what catches it.
+    writeFileSync(skillPath, buildSkill(readFileSync(skillPath, 'utf8'), renderCatalog([])), 'utf8');
+
+    const result = migrate(root);
+    assert.deepEqual(noticesOf(result), []);
+    assert.match(result.message, /up to date/);
+  });
+
+  test('the current layout is reported as nothing at all', () => {
+    const root = seedProject(currentSkill());
+    migrate(root); // installs the four files that were genuinely missing
+
+    // Second run: nothing left to add, and the current layout must produce no
+    // notice — so the summary is the plain "up to date" line.
+    const result = migrate(root);
+
+    assert.deepEqual(noticesOf(result), []);
+    assert.equal(result.pending, 0);
+    assert.match(result.message, /up to date/);
+  });
+
+  test('an absent SKILL.md (freshly scaffolded) produces no notices', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+
+    const result = migrate(root);
+
+    assert.deepEqual(noticesOf(result), []);
+    assert.ok(result.steps[0].added.includes('SKILL.md'), 'sanity check: SKILL.md was created');
+  });
+
+  test('a detected SKILL.md is never rewritten — byte-identical in dry-run and in a real run', () => {
+    for (const [label, skillContent] of [
+      ['legacy layout', legacyIndexSkill()],
+      ['no markers', NO_MARKER_SKILL],
+      ['reversed markers', REVERSED_MARKER_SKILL],
+    ]) {
+      const root = seedProject(skillContent);
+      const skillPath = path.join(teamLessonsDir(root), 'SKILL.md');
+      const before = fs.readFileSync(skillPath); // Buffer — byte-level comparison
+
+      migrate(root, { dryRun: true });
+      assert.ok(fs.readFileSync(skillPath).equals(before), `${label}: dry-run modified SKILL.md`);
+
+      migrate(root, { dryRun: false });
+      assert.ok(fs.readFileSync(skillPath).equals(before), `${label}: a real run modified SKILL.md`);
+    }
+  });
+
+  test('dry-run and a real run emit exactly the same notices', () => {
+    for (const skillContent of [
+      legacyIndexSkill(),
+      NO_MARKER_SKILL,
+      REVERSED_MARKER_SKILL,
+      currentSkill(),
+    ]) {
+      const root = seedProject(skillContent);
+
+      const dryResult = migrate(root, { dryRun: true });
+      // Dry-run writes nothing, so the real run below sees the same SKILL.md.
+      const realResult = migrate(root, { dryRun: false });
+
+      assert.deepEqual(noticesOf(dryResult), noticesOf(realResult));
+    }
+  });
+
+  test('the report does not claim "everything is up to date" while a notice is printed', () => {
+    const root = seedProject(legacyIndexSkill());
+    migrate(root); // install the files that are genuinely missing → pending becomes 0
+
+    const result = migrate(root);
+
+    assert.equal(result.pending, 0);
+    assert.ok(noticesOf(result).length > 0, 'sanity check: the notice survives a second run');
+    assert.doesNotMatch(result.message, /up to date/);
+    assert.match(result.message, /note/i);
+    // Notices are advice, not pending work: they must not change the exit code.
+    assert.equal(result.exitCode, 0);
+    assert.equal(migrate(root, { dryRun: true }).exitCode, 0);
   });
 });
 
