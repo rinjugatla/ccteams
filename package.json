@@ -15,7 +15,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "test": "node --test test/gen-lessons.test.mjs test/scaffold-team-lessons.test.mjs"
+    "test": "node --test test/gen-lessons.test.mjs test/lessons-index.test.mjs test/scaffold-team-lessons.test.mjs"
   },
   "keywords": [
     "claude",

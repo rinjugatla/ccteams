@@ -35,6 +35,12 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+
+// `import.meta.dirname` needs Node >= 20.11; this package's `engines` allows
+// Node 18, so resolve the same way the rest of the repo does (lib/teams.js,
+// lib/use.js, bin/ccteams.js): derive it from `import.meta.url` instead.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** Index section delimiters. Only the text between these two lines is replaced. */
 export const CATALOG_START = '<!-- team-lessons:catalog:start -->';
@@ -48,9 +54,9 @@ export const GENERATED_NOTE =
 export const EMPTY_CATALOG = '(none yet)';
 
 // The team-lessons root is the parent of this `scripts/` directory. Resolving it
-// from import.meta.dirname (not cwd) keeps the skill folder self-contained.
+// from __dirname (not cwd) keeps the skill folder self-contained.
 // Tests point GEN_LESSONS_ROOT at a fixture directory instead.
-const DEFAULT_TEAM_LESSONS_ROOT = path.resolve(import.meta.dirname, '..');
+const DEFAULT_TEAM_LESSONS_ROOT = path.resolve(__dirname, '..');
 
 /** Resolve `lessons/` and `SKILL.md` from the team-lessons root. */
 export function resolvePaths(teamLessonsRoot = process.env.GEN_LESSONS_ROOT || DEFAULT_TEAM_LESSONS_ROOT) {
@@ -163,9 +169,25 @@ export function renderCatalog(lessons) {
     .join('\n');
 }
 
+/** Escape a literal string for embedding in a `RegExp` (e.g. the `—` and `.` in GENERATED_NOTE). */
+function escapeRegExp(literal) {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Replace the text between the markers in SKILL.md with the rendered index,
  * leaving everything outside the markers (hand-written prose) untouched.
+ *
+ * The generated note is placed just ABOVE the start marker rather than
+ * between the markers, so a marker-only diff (rebasing on a fresh catalog)
+ * never touches the note line. Because that puts the note outside the region
+ * this function replaces, a note left over from a previous run has to be
+ * stripped from the end of `before` first — otherwise re-running (or
+ * migrating a `SKILL.md` from the older layout, where the note sat between
+ * the markers and simply falls off with the rest of that region) would stack
+ * a fresh note on top of it every time. The pattern absorbs any number of
+ * repeats so a file left in a broken, already-stacked state still recovers
+ * to a single note on the next run.
  *
  * @param {string} skillContent current full text of SKILL.md
  * @param {string} catalogBody output of renderCatalog
@@ -182,9 +204,10 @@ export function buildSkill(skillContent, catalogBody) {
     );
   }
 
-  const before = normalized.slice(0, startIndex + CATALOG_START.length);
+  const staleNotePattern = new RegExp(`(?:${escapeRegExp(GENERATED_NOTE)}\\n+)+$`);
+  const before = normalized.slice(0, startIndex).replace(staleNotePattern, '');
   const after = normalized.slice(endIndex);
-  return `${before}\n${GENERATED_NOTE}\n\n${catalogBody}\n${after}`;
+  return `${before}${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalogBody}\n${after}`;
 }
 
 function main() {
@@ -215,7 +238,7 @@ function main() {
 // Only run main() when executed as a CLI — importing this file (tests) must not.
 if (
   process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(import.meta.dirname, 'gen-lessons.mjs')
+  path.resolve(process.argv[1]) === path.resolve(__dirname, 'gen-lessons.mjs')
 ) {
   main();
 }

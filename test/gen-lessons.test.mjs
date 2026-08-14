@@ -130,16 +130,46 @@ describe('buildSkill', () => {
     `# Heading\n\nHand-written preamble.\n\n## Failure catalog\n\n${CATALOG_START}\n${inner}${CATALOG_END}\n`;
   const catalog = '1. **[S A](lessons/01-a.md)** → M A';
 
-  test('replaces between the markers and preserves hand-written text outside', () => {
+  // Mimics the OLD layout (before this change), where the note sat BETWEEN the
+  // markers instead of above the start marker.
+  const wrapOldFormat = (staleCatalog) =>
+    `# Heading\n\nHand-written preamble.\n\n## Failure catalog\n\n${CATALOG_START}\n${GENERATED_NOTE}\n\n${staleCatalog}\n${CATALOG_END}\n`;
+
+  test('replaces between the markers and places the note ABOVE the start marker', () => {
     const result = buildSkill(wrap('(stale index)\n'), catalog);
     assert.ok(result.includes('Hand-written preamble.'));
-    assert.ok(result.includes(`${CATALOG_START}\n${GENERATED_NOTE}\n\n${catalog}\n${CATALOG_END}`));
+    assert.ok(result.includes(`${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalog}\n${CATALOG_END}`));
     assert.ok(!result.includes('stale index'));
+    // Only one note in the whole file, and it precedes the start marker.
+    assert.equal(result.split(GENERATED_NOTE).length - 1, 1);
+    assert.ok(result.indexOf(GENERATED_NOTE) < result.indexOf(CATALOG_START));
   });
 
-  test('is idempotent', () => {
+  test('is idempotent across repeated calls (note is not stacked)', () => {
     const once = buildSkill(wrap('\n'), catalog);
-    assert.equal(buildSkill(once, catalog), once);
+    const twice = buildSkill(once, catalog);
+    const thrice = buildSkill(twice, catalog);
+    assert.equal(twice, once);
+    assert.equal(thrice, once);
+    assert.equal(once.split(GENERATED_NOTE).length - 1, 1);
+  });
+
+  test('migrates a SKILL.md from the older layout (note between the markers) in one pass', () => {
+    const migrated = buildSkill(wrapOldFormat('(old catalog)'), catalog);
+    assert.ok(migrated.includes(`${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalog}\n${CATALOG_END}`));
+    assert.ok(!migrated.includes('old catalog'));
+    assert.equal(migrated.split(GENERATED_NOTE).length - 1, 1);
+
+    // And the migrated result is itself idempotent on the next run.
+    assert.equal(buildSkill(migrated, catalog), migrated);
+  });
+
+  test('recovers a file left with a stacked/duplicated note back to a single note', () => {
+    // Simulates a file that was corrupted by re-running a buggy version of the
+    // note-placement logic: the note appears twice, directly above the marker.
+    const broken = wrap('\n').replace(CATALOG_START, `${GENERATED_NOTE}\n${GENERATED_NOTE}\n${CATALOG_START}`);
+    const recovered = buildSkill(broken, catalog);
+    assert.equal(recovered.split(GENERATED_NOTE).length - 1, 1);
   });
 
   test('normalizes CRLF input to LF', () => {
@@ -149,6 +179,12 @@ describe('buildSkill', () => {
 
   test('throws when the markers are missing', () => {
     assert.throws(() => buildSkill('# no markers here\n', catalog), /markers/);
+  });
+
+  test('throws when the markers are present but reversed', () => {
+    // Writing into a file whose end marker precedes its start marker would
+    // silently swallow everything between them, so this must not be tolerated.
+    assert.throws(() => buildSkill(`${CATALOG_END}\n${CATALOG_START}\n`, catalog), /markers/);
   });
 });
 

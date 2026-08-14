@@ -31,6 +31,7 @@ describe('scaffoldTeamLessons', () => {
       'SKILL.md',
       'lessons/.gitkeep',
       'scripts/gen-lessons.mjs',
+      'scripts/lessons-index.mjs',
     ]);
     assert.deepEqual(result.preserved, []);
     assert.equal(result.needsMigration, false);
@@ -49,7 +50,7 @@ describe('scaffoldTeamLessons', () => {
 
     const second = scaffoldTeamLessons(dest);
     assert.deepEqual(second.created, []);
-    assert.equal(second.preserved.length, 4);
+    assert.equal(second.preserved.length, 5);
     assert.equal(readFileSync(skillPath, 'utf8'), edited);
   });
 
@@ -65,6 +66,7 @@ describe('scaffoldTeamLessons', () => {
       'AUTHORING.md',
       'lessons/.gitkeep',
       'scripts/gen-lessons.mjs',
+      'scripts/lessons-index.mjs',
     ]);
     assert.equal(readFileSync(path.join(dest, 'SKILL.md'), 'utf8'), OLD_STYLE_SKILL);
     // No catalog markers → the generator would refuse to run, so `use` reports
