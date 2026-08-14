@@ -7,7 +7,9 @@
  *   use <team>         Apply (stack) a team onto the current project
  *   unuse <team>       Remove one applied team from the current project
  *   current            Show the currently-applied teams
- *   migrate [--dry-run]  Pick up files a newer ccteams ships that this project is missing
+ *   migrate [--dry-run] [--yes] [--force]  Pick up files a newer ccteams ships that this
+ *                       project is missing, or that ccteams itself placed and has since
+ *                       updated (agent definitions, playbook/working-method skills)
  *   upgrade            Upgrade ccteams to the latest version via npm
  */
 
@@ -200,15 +202,28 @@ if (command === 'unuse') {
 if (command === 'migrate') {
   const migrateArgs = args.slice(1);
   const dryRun = migrateArgs.includes('--dry-run');
-  const unknownArgs = migrateArgs.filter((a) => a !== '--dry-run');
+  const yes = migrateArgs.includes('--yes');
+  const force = migrateArgs.includes('--force');
+  const KNOWN_MIGRATE_FLAGS = ['--dry-run', '--yes', '--force'];
+  const unknownArgs = migrateArgs.filter((a) => !KNOWN_MIGRATE_FLAGS.includes(a));
 
   if (unknownArgs.length > 0) {
     console.error(`Unknown option(s) for "ccteams migrate": ${unknownArgs.join(', ')}\n`);
-    console.error('Usage: ccteams migrate [--dry-run]');
+    console.error('Usage: ccteams migrate [--dry-run] [--yes] [--force]');
     process.exit(1);
   }
 
-  const result = migrate(process.cwd(), { dryRun });
+  // --force only means anything alongside --yes: it is what additionally
+  // authorizes overwriting a user-modified/unknown-baseline file that --yes
+  // alone deliberately still skips (see lib/migrate.js's ownedFilesStep).
+  // Accepting --force on its own would silently do nothing, which looks like
+  // a bug rather than a no-op — reject it instead of accepting quietly.
+  if (force && !yes) {
+    console.error('Error: "--force" only takes effect together with "--yes". Run: ccteams migrate --yes --force');
+    process.exit(1);
+  }
+
+  const result = await migrate(process.cwd(), { dryRun, yes, force });
   if (!result.success) {
     console.error(`Error: ${result.message}`);
     process.exit(1);
@@ -251,8 +266,15 @@ Usage:
   ccteams use <team> --agent-teams    Apply a team AND enable agent-teams mode
   ccteams unuse <team>                Remove one applied team from the current project
   ccteams current                     Show all currently-applied teams
-  ccteams migrate                     Add files a newer ccteams ships that this project is missing
-  ccteams migrate --dry-run           Preview only; exits 1 if anything is missing (nothing is written)
+  ccteams migrate                     Add/update files a newer ccteams ships; upstream-changed
+                                       ccteams-owned files update automatically, files you edited
+                                       are left alone (see "Migrate:" below)
+  ccteams migrate --dry-run           Preview only; exits 1 if ccteams would add/update anything
+                                       without asking (nothing is written)
+  ccteams migrate --yes               Skip the interactive confirmation; still leaves files you
+                                       edited untouched
+  ccteams migrate --yes --force       Also overwrite files you edited (or whose baseline is
+                                       unknown) without asking
   ccteams upgrade                     Upgrade ccteams to the latest npm version
   ccteams --version                   Print the ccteams version
 
@@ -277,7 +299,13 @@ Agent teams mode:
 Migrate:
   Run "ccteams migrate" in the project's MAIN checkout, not a worktree — it writes
   into that checkout's .claude/, and a worktree's .claude/ is typically untracked
-  and discarded when the worktree is removed. It never overwrites an existing file.
+  and discarded when the worktree is removed.
+
+  ccteams-owned files (agent definitions, playbook skills, the shared working-method
+  skill) CAN be overwritten: an upstream-changed file (your copy still matches what
+  ccteams placed; only the package moved on) updates automatically, a file you
+  edited is left alone unless you confirm interactively or pass --yes --force. Your
+  user-owned .claude/skills/team-lessons/ is never touched. Nothing is ever deleted.
 
 Examples:
   ccteams list
@@ -288,6 +316,7 @@ Examples:
   ccteams unuse frontend
   ccteams current
   ccteams migrate
+  ccteams migrate --yes --force
   ccteams upgrade
 `.trimStart();
 

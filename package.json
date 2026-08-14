@@ -15,7 +15,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "test": "node --test test/gen-lessons.test.mjs test/lessons-index.test.mjs test/migrate.test.mjs test/scaffold-team-lessons.test.mjs"
+    "test": "node --test --test-timeout=30000 test/diff.test.mjs test/gen-lessons.test.mjs test/hash.test.mjs test/lessons-index.test.mjs test/manifest.test.mjs test/migrate.test.mjs test/migrate-owned-files.test.mjs test/placement.test.mjs test/prompt.test.mjs test/scaffold-team-lessons.test.mjs test/use.test.mjs"
   },
   "keywords": [
     "claude",

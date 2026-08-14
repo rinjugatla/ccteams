@@ -42,7 +42,7 @@ const EXPECTED_SCAFFOLD_FILES = [
 /** Create a fresh temp project directory (already exists on disk). */
 const makeProject = () => mkdtempSync(path.join(tmpdir(), 'ccteams-migrate-'));
 
-/** Write a minimal, valid v3 manifest (one applied team, no placed files). */
+/** Write a minimal, valid v4 manifest (one applied team, no placed files). */
 const applyMinimalManifest = (root) => {
   writeManifest(root, {
     teams: { generalist: { appliedAt: new Date().toISOString(), placedFiles: [], agentTeams: false } },
@@ -109,9 +109,9 @@ function snapshotDir(dir) {
 }
 
 describe('migrate()', () => {
-  test('ccteams not applied (no manifest): exits 0, writes nothing', () => {
+  test('ccteams not applied (no manifest): exits 0, writes nothing', async () => {
     const root = makeProject();
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.equal(result.exitCode, 0);
     assert.equal(result.applied, false);
@@ -119,19 +119,19 @@ describe('migrate()', () => {
     assert.match(result.message, /not applied/);
   });
 
-  test('corrupted manifest (invalid JSON) is treated the same as not applied', () => {
+  test('corrupted manifest (invalid JSON) is treated the same as not applied', async () => {
     const root = makeProject();
     mkdirSync(path.dirname(manifestPath(root)), { recursive: true });
     writeFileSync(manifestPath(root), '{ this is not valid json', 'utf8');
 
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.equal(result.exitCode, 0);
     assert.equal(result.applied, false);
     assert.equal(existsSync(teamLessonsDir(root)), false);
   });
 
-  test('legacy v1/v2 manifest ({appliedTeam, placedFiles}) normalizes and proceeds', () => {
+  test('legacy v1/v2 manifest ({appliedTeam, placedFiles}) normalizes and proceeds', async () => {
     const root = makeProject();
     mkdirSync(path.dirname(manifestPath(root)), { recursive: true });
     writeFileSync(
@@ -140,7 +140,7 @@ describe('migrate()', () => {
       'utf8',
     );
 
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.equal(result.applied, true);
     assert.equal(result.exitCode, 0);
@@ -149,11 +149,11 @@ describe('migrate()', () => {
     }
   });
 
-  test('adds every missing team-lessons file when none exist yet', () => {
+  test('adds every missing team-lessons file when none exist yet', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
 
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.equal(result.exitCode, 0);
     assert.equal(result.pending, EXPECTED_SCAFFOLD_FILES.length);
@@ -162,7 +162,7 @@ describe('migrate()', () => {
     }
   });
 
-  test('never-overwrite: every pre-existing file is byte-for-byte unchanged after migrate', () => {
+  test('never-overwrite: every pre-existing file is byte-for-byte unchanged after migrate', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     const dir = teamLessonsDir(root);
@@ -176,7 +176,7 @@ describe('migrate()', () => {
 
     const before = snapshotDir(dir); // only the two hand-written files at this point
 
-    const result = migrate(root);
+    const result = await migrate(root);
 
     const after = snapshotDir(dir);
     // Every file that existed BEFORE migrate ran must be byte-identical after —
@@ -196,18 +196,18 @@ describe('migrate()', () => {
     assert.deepEqual(result.steps[0].kept.slice().sort(), ['SKILL.md', 'scripts/gen-lessons.mjs'].sort());
   });
 
-  test('--dry-run writes nothing when team-lessons is entirely absent', () => {
+  test('--dry-run writes nothing when team-lessons is entirely absent', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
 
-    const result = migrate(root, { dryRun: true });
+    const result = await migrate(root, { dryRun: true });
 
     assert.equal(existsSync(teamLessonsDir(root)), false);
     assert.equal(result.pending, EXPECTED_SCAFFOLD_FILES.length);
     assert.equal(result.exitCode, 1);
   });
 
-  test('--dry-run leaves an existing team-lessons directory completely untouched', () => {
+  test('--dry-run leaves an existing team-lessons directory completely untouched', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     const dir = teamLessonsDir(root);
@@ -216,7 +216,7 @@ describe('migrate()', () => {
     writeFileSync(path.join(dir, 'scripts', 'gen-lessons.mjs'), '// HAND-WRITTEN\n', 'utf8');
 
     const before = snapshotDir(dir);
-    const result = migrate(root, { dryRun: true });
+    const result = await migrate(root, { dryRun: true });
     const after = snapshotDir(dir);
 
     // Full-directory equality: dry-run must add ZERO files, unlike the
@@ -226,14 +226,14 @@ describe('migrate()', () => {
     assert.equal(result.exitCode, 1);
   });
 
-  test('dry-run and a real run report the same `added` set for the same starting state', () => {
+  test('dry-run and a real run report the same `added` set for the same starting state', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
 
-    const dryResult = migrate(root, { dryRun: true });
+    const dryResult = await migrate(root, { dryRun: true });
     // Dry-run wrote nothing (asserted above), so the real run below starts from
     // the same on-disk state the dry-run observed.
-    const realResult = migrate(root, { dryRun: false });
+    const realResult = await migrate(root, { dryRun: false });
 
     assert.deepEqual(
       dryResult.steps[0].added.slice().sort(),
@@ -241,15 +241,15 @@ describe('migrate()', () => {
     );
   });
 
-  test('--dry-run exitCode is 1 when files are pending and 0 once everything is installed', () => {
+  test('--dry-run exitCode is 1 when files are pending and 0 once everything is installed', async () => {
     const pendingRoot = makeProject();
     applyMinimalManifest(pendingRoot);
-    assert.equal(migrate(pendingRoot, { dryRun: true }).exitCode, 1);
+    assert.equal((await migrate(pendingRoot, { dryRun: true })).exitCode, 1);
 
     const upToDateRoot = makeProject();
     applyMinimalManifest(upToDateRoot);
-    migrate(upToDateRoot); // real run installs everything
-    assert.equal(migrate(upToDateRoot, { dryRun: true }).exitCode, 0);
+    await migrate(upToDateRoot); // real run installs everything
+    assert.equal((await migrate(upToDateRoot, { dryRun: true })).exitCode, 0);
   });
 
   test('formatMigrateReport: "up to date" message when there is nothing to add', () => {
@@ -270,14 +270,21 @@ describe('migrate()', () => {
     assert.match(message, /old-layout SKILL.md detected/);
   });
 
-  test('a squatting non-directory at .claude/skills/team-lessons is reported as a failure, not thrown', () => {
+  test('a squatting non-directory at .claude/skills/team-lessons is reported as a failure, not thrown', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     makeTeamLessonsAFile(root);
 
+    // migrate() is async, so a step's throw can never reach the caller as a
+    // SYNCHRONOUS exception any more — it would surface as a rejected
+    // promise instead. assert.doesNotReject is the async-aware equivalent of
+    // the original assert.doesNotThrow: it proves migrate()'s own try/catch
+    // (see migrate.js) swallows the step's throw into a resolved
+    // `{ success: false }`, rather than letting it become an uncaught
+    // rejection.
     let result;
-    assert.doesNotThrow(() => {
-      result = migrate(root);
+    await assert.doesNotReject(async () => {
+      result = await migrate(root);
     });
 
     assert.equal(result.success, false);
@@ -285,14 +292,14 @@ describe('migrate()', () => {
     assert.match(result.message, /team-lessons/);
   });
 
-  test('--dry-run reports the same failure as a real run instead of promising unwritable additions', () => {
+  test('--dry-run reports the same failure as a real run instead of promising unwritable additions', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     makeTeamLessonsAFile(root);
 
     let result;
-    assert.doesNotThrow(() => {
-      result = migrate(root, { dryRun: true });
+    await assert.doesNotReject(async () => {
+      result = await migrate(root, { dryRun: true });
     });
 
     assert.equal(result.success, false);
@@ -372,10 +379,10 @@ ${CATALOG_START}
 
   const noticesOf = (result) => result.steps[0].notices;
 
-  test('legacy layout (note inside the markers) is reported with a regenerate command', () => {
+  test('legacy layout (note inside the markers) is reported with a regenerate command', async () => {
     const root = seedProject(legacyIndexSkill());
 
-    const notices = noticesOf(migrate(root));
+    const notices = noticesOf(await migrate(root));
 
     assert.ok(
       notices.some((line) => line.includes(LEGACY_NOTE_PHRASE)),
@@ -394,10 +401,10 @@ ${CATALOG_START}
     );
   });
 
-  test('no-marker layout is reported differently, and never as the legacy layout', () => {
+  test('no-marker layout is reported differently, and never as the legacy layout', async () => {
     const root = seedProject(NO_MARKER_SKILL);
 
-    const notices = noticesOf(migrate(root));
+    const notices = noticesOf(await migrate(root));
 
     assert.ok(
       notices.some((line) => line.includes(UNUSABLE_MARKERS_PHRASE)),
@@ -412,10 +419,10 @@ ${CATALOG_START}
     );
   });
 
-  test('reversed markers (END before START) are reported as unusable markers, not as the legacy layout', () => {
+  test('reversed markers (END before START) are reported as unusable markers, not as the legacy layout', async () => {
     const root = seedProject(REVERSED_MARKER_SKILL);
 
-    const result = migrate(root);
+    const result = await migrate(root);
     const notices = noticesOf(result);
 
     // Both markers are present, so only the ORDER check can catch this — this is
@@ -433,14 +440,14 @@ ${CATALOG_START}
     assert.ok(!notices.some((line) => line.includes('The markers themselves are fine')));
   });
 
-  test('a note both outside AND inside the markers is still reported as the legacy layout', () => {
+  test('a note both outside AND inside the markers is still reported as the legacy layout', async () => {
     // The realistic shape of a half-finished manual migration: the user added
     // the note above the start marker but never removed the old one below it.
     const root = seedProject(
       currentSkill().replace(`${CATALOG_START}\n`, `${CATALOG_START}\n${GENERATED_NOTE}\n`),
     );
 
-    const notices = noticesOf(migrate(root));
+    const notices = noticesOf(await migrate(root));
 
     assert.ok(
       notices.some((line) => line.includes(LEGACY_NOTE_PHRASE)),
@@ -448,13 +455,13 @@ ${CATALOG_START}
     );
   });
 
-  test('following the advice actually clears the notice', () => {
+  test('following the advice actually clears the notice', async () => {
     const root = seedProject(legacyIndexSkill());
     registerLessonsHooks(root); // keep the unrelated hook step silent — see its doc comment
     const skillPath = path.join(teamLessonsDir(root), 'SKILL.md');
-    migrate(root); // installs the generator the notice tells the user to run
+    await migrate(root); // installs the generator the notice tells the user to run
 
-    assert.ok(noticesOf(migrate(root)).length > 0, 'sanity check: the notice is present first');
+    assert.ok(noticesOf(await migrate(root)).length > 0, 'sanity check: the notice is present first');
 
     // Do exactly what the advised command does — same functions, from the same
     // generator ccteams ships — instead of spawning it, so this stays a unit
@@ -462,36 +469,36 @@ ${CATALOG_START}
     // advice becomes false and this test is what catches it.
     writeFileSync(skillPath, buildSkill(readFileSync(skillPath, 'utf8'), renderCatalog([])), 'utf8');
 
-    const result = migrate(root);
+    const result = await migrate(root);
     assert.deepEqual(noticesOf(result), []);
     assert.match(result.message, /up to date/);
   });
 
-  test('the current layout is reported as nothing at all', () => {
+  test('the current layout is reported as nothing at all', async () => {
     const root = seedProject(currentSkill());
     registerLessonsHooks(root); // keep the unrelated hook step silent — see its doc comment
-    migrate(root); // installs the four files that were genuinely missing
+    await migrate(root); // installs the four files that were genuinely missing
 
     // Second run: nothing left to add, and the current layout must produce no
     // notice — so the summary is the plain "up to date" line.
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.deepEqual(noticesOf(result), []);
     assert.equal(result.pending, 0);
     assert.match(result.message, /up to date/);
   });
 
-  test('an absent SKILL.md (freshly scaffolded) produces no notices', () => {
+  test('an absent SKILL.md (freshly scaffolded) produces no notices', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
 
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.deepEqual(noticesOf(result), []);
     assert.ok(result.steps[0].added.includes('SKILL.md'), 'sanity check: SKILL.md was created');
   });
 
-  test('a detected SKILL.md is never rewritten — byte-identical in dry-run and in a real run', () => {
+  test('a detected SKILL.md is never rewritten — byte-identical in dry-run and in a real run', async () => {
     for (const [label, skillContent] of [
       ['legacy layout', legacyIndexSkill()],
       ['no markers', NO_MARKER_SKILL],
@@ -501,15 +508,15 @@ ${CATALOG_START}
       const skillPath = path.join(teamLessonsDir(root), 'SKILL.md');
       const before = fs.readFileSync(skillPath); // Buffer — byte-level comparison
 
-      migrate(root, { dryRun: true });
+      await migrate(root, { dryRun: true });
       assert.ok(fs.readFileSync(skillPath).equals(before), `${label}: dry-run modified SKILL.md`);
 
-      migrate(root, { dryRun: false });
+      await migrate(root, { dryRun: false });
       assert.ok(fs.readFileSync(skillPath).equals(before), `${label}: a real run modified SKILL.md`);
     }
   });
 
-  test('dry-run and a real run emit exactly the same notices', () => {
+  test('dry-run and a real run emit exactly the same notices', async () => {
     for (const skillContent of [
       legacyIndexSkill(),
       NO_MARKER_SKILL,
@@ -518,19 +525,19 @@ ${CATALOG_START}
     ]) {
       const root = seedProject(skillContent);
 
-      const dryResult = migrate(root, { dryRun: true });
+      const dryResult = await migrate(root, { dryRun: true });
       // Dry-run writes nothing, so the real run below sees the same SKILL.md.
-      const realResult = migrate(root, { dryRun: false });
+      const realResult = await migrate(root, { dryRun: false });
 
       assert.deepEqual(noticesOf(dryResult), noticesOf(realResult));
     }
   });
 
-  test('the report does not claim "everything is up to date" while a notice is printed', () => {
+  test('the report does not claim "everything is up to date" while a notice is printed', async () => {
     const root = seedProject(legacyIndexSkill());
-    migrate(root); // install the files that are genuinely missing → pending becomes 0
+    await migrate(root); // install the files that are genuinely missing → pending becomes 0
 
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.equal(result.pending, 0);
     assert.ok(noticesOf(result).length > 0, 'sanity check: the notice survives a second run');
@@ -538,7 +545,7 @@ ${CATALOG_START}
     assert.match(result.message, /note/i);
     // Notices are advice, not pending work: they must not change the exit code.
     assert.equal(result.exitCode, 0);
-    assert.equal(migrate(root, { dryRun: true }).exitCode, 0);
+    assert.equal((await migrate(root, { dryRun: true })).exitCode, 0);
   });
 });
 
@@ -556,7 +563,7 @@ describe('migrate() — team-lessons hook detection', () => {
   const hookStepOf = (result) => result.steps.find((s) => s.id === 'team-lessons-hook');
   const hookNoticesOf = (result) => hookStepOf(result).notices;
 
-  test('both hooks registered: nothing is reported (no heading, no notices)', () => {
+  test('both hooks registered: nothing is reported (no heading, no notices)', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     writeRawSettings(root, {
@@ -566,18 +573,18 @@ describe('migrate() — team-lessons hook detection', () => {
       },
     });
 
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.deepEqual(hookNoticesOf(result), []);
     assert.doesNotMatch(result.message, /team-lessons hook/, 'heading must not appear when there is nothing to report');
   });
 
-  test('only SessionStart registered: only SubagentStart is advised', () => {
+  test('only SessionStart registered: only SubagentStart is advised', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     writeRawSettings(root, { hooks: { SessionStart: [hookEntryFor(DEFAULT_COMMAND)] } });
 
-    const notices = hookNoticesOf(migrate(root));
+    const notices = hookNoticesOf(await migrate(root));
 
     assert.ok(notices.some((l) => l.includes('! SubagentStart')), `expected a SubagentStart notice, got:\n${notices.join('\n')}`);
     assert.ok(!notices.some((l) => l.includes('! SessionStart')), 'SessionStart is already registered — it must not be flagged');
@@ -585,12 +592,12 @@ describe('migrate() — team-lessons hook detection', () => {
     assert.ok(!notices.some((l) => l.includes('"SessionStart": [')), 'a registered event must not get a fragment either');
   });
 
-  test('only SubagentStart registered: only SessionStart is advised', () => {
+  test('only SubagentStart registered: only SessionStart is advised', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     writeRawSettings(root, { hooks: { SubagentStart: [hookEntryFor(DEFAULT_COMMAND)] } });
 
-    const notices = hookNoticesOf(migrate(root));
+    const notices = hookNoticesOf(await migrate(root));
 
     assert.ok(notices.some((l) => l.includes('! SessionStart')), `expected a SessionStart notice, got:\n${notices.join('\n')}`);
     assert.ok(!notices.some((l) => l.includes('! SubagentStart')), 'SubagentStart is already registered — it must not be flagged');
@@ -598,34 +605,34 @@ describe('migrate() — team-lessons hook detection', () => {
     assert.ok(!notices.some((l) => l.includes('"SubagentStart": [')), 'a registered event must not get a fragment either');
   });
 
-  test('hooks key present but neither event registered: both are advised', () => {
+  test('hooks key present but neither event registered: both are advised', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     writeRawSettings(root, { hooks: { SomeOtherHookEvent: [hookEntryFor('node some-other-script.mjs')] } });
 
-    const notices = hookNoticesOf(migrate(root));
+    const notices = hookNoticesOf(await migrate(root));
 
     assert.ok(notices.some((l) => l.includes('! SessionStart')));
     assert.ok(notices.some((l) => l.includes('! SubagentStart')));
   });
 
-  test('hooks key absent entirely: both events are advised', () => {
+  test('hooks key absent entirely: both events are advised', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     writeRawSettings(root, { permissions: { allow: [] } }); // some unrelated key, no hooks at all
 
-    const notices = hookNoticesOf(migrate(root));
+    const notices = hookNoticesOf(await migrate(root));
 
     assert.ok(notices.some((l) => l.includes('! SessionStart')));
     assert.ok(notices.some((l) => l.includes('! SubagentStart')));
   });
 
-  test('settings.json absent: both events are advised and migrate still succeeds', () => {
+  test('settings.json absent: both events are advised and migrate still succeeds', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     // Deliberately no settings.json written at all.
 
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.equal(result.success, true);
     const notices = hookNoticesOf(result);
@@ -633,7 +640,7 @@ describe('migrate() — team-lessons hook detection', () => {
     assert.ok(notices.some((l) => l.includes('! SubagentStart')));
   });
 
-  test('settings.json is broken JSON: reported as unreadable rather than "not registered", and migrate does not throw', () => {
+  test('settings.json is broken JSON: reported as unreadable rather than "not registered", and migrate does not throw', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     const dir = path.join(root, '.claude');
@@ -641,8 +648,8 @@ describe('migrate() — team-lessons hook detection', () => {
     writeFileSync(path.join(dir, 'settings.json'), '{ this is not valid json', 'utf8');
 
     let result;
-    assert.doesNotThrow(() => {
-      result = migrate(root);
+    await assert.doesNotReject(async () => {
+      result = await migrate(root);
     });
 
     assert.equal(result.success, true);
@@ -657,7 +664,7 @@ describe('migrate() — team-lessons hook detection', () => {
     assert.ok(!notices.some((l) => l.includes('! SubagentStart')));
   });
 
-  test('custom command forms are recognized as registered (no false "not registered")', () => {
+  test('custom command forms are recognized as registered (no false "not registered")', async () => {
     const customCommands = [
       'cd $CLAUDE_PROJECT_DIR && node ./.claude/skills/team-lessons/scripts/lessons-index.mjs',
       'node /abs/path/to/project/.claude/skills/team-lessons/scripts/lessons-index.mjs',
@@ -672,7 +679,7 @@ describe('migrate() — team-lessons hook detection', () => {
         hooks: { SessionStart: [hookEntryFor(command)], SubagentStart: [hookEntryFor(command)] },
       });
 
-      const result = migrate(root);
+      const result = await migrate(root);
       assert.deepEqual(
         hookNoticesOf(result),
         [],
@@ -681,7 +688,7 @@ describe('migrate() — team-lessons hook detection', () => {
     }
   });
 
-  test('a non-empty matcher and multiple matcher entries are still scanned', () => {
+  test('a non-empty matcher and multiple matcher entries are still scanned', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
     // The real command sits in the SECOND matcher entry, under a non-empty
@@ -700,7 +707,7 @@ describe('migrate() — team-lessons hook detection', () => {
       },
     });
 
-    const result = migrate(root);
+    const result = await migrate(root);
 
     assert.deepEqual(
       hookNoticesOf(result),
@@ -709,7 +716,7 @@ describe('migrate() — team-lessons hook detection', () => {
     );
   });
 
-  test('malformed hooks shapes never throw and are treated as not registered', () => {
+  test('malformed hooks shapes never throw and are treated as not registered', async () => {
     const malformedSettingsList = [
       { hooks: { SessionStart: 'not-an-array' } },
       { hooks: { SessionStart: ['not-an-object'] } },
@@ -726,8 +733,8 @@ describe('migrate() — team-lessons hook detection', () => {
       writeRawSettings(root, settings);
 
       let result;
-      assert.doesNotThrow(() => {
-        result = migrate(root);
+      await assert.doesNotReject(async () => {
+        result = await migrate(root);
       }, `should not throw for ${JSON.stringify(settings)}`);
 
       assert.equal(result.success, true);
@@ -739,7 +746,7 @@ describe('migrate() — team-lessons hook detection', () => {
     }
   });
 
-  test('.claude is byte-identical after a real run in every settings.json state', () => {
+  test('.claude is byte-identical after a real run in every settings.json state', async () => {
     // Each scenario proves the SAME thing (a real run touches nothing under
     // .claude/) but from a different settings.json starting state, because a
     // regression could plausibly hide in just one branch — e.g. writing back
@@ -813,12 +820,12 @@ describe('migrate() — team-lessons hook detection', () => {
     for (const { label, setup, sanityCheck } of scenarios) {
       const root = makeProject();
       applyMinimalManifest(root);
-      migrate(root); // scaffold team-lessons fully first, so the run under test adds nothing else
+      await migrate(root); // scaffold team-lessons fully first, so the run under test adds nothing else
       setup(root);
 
       const dotClaudeDir = path.join(root, '.claude');
       const before = snapshotDir(dotClaudeDir);
-      const result = migrate(root); // real (non-dry) run — the one under test
+      const result = await migrate(root); // real (non-dry) run — the one under test
       const after = snapshotDir(dotClaudeDir);
 
       assert.deepEqual(after, before, `[${label}] migrate() must not write anything under .claude/`);
@@ -826,7 +833,7 @@ describe('migrate() — team-lessons hook detection', () => {
     }
   });
 
-  test('migrate() never creates .claude/settings.json when it is absent (real run and dry-run)', () => {
+  test('migrate() never creates .claude/settings.json when it is absent (real run and dry-run)', async () => {
     // There IS a warm-up migrate() below (line: "scaffold team-lessons fully
     // first"), so this test cannot claim the run under test is the only call
     // against the project. What closes that gap is the sanity assert on the
@@ -837,11 +844,11 @@ describe('migrate() — team-lessons hook detection', () => {
     for (const dryRun of [false, true]) {
       const root = makeProject();
       applyMinimalManifest(root);
-      migrate(root); // scaffold team-lessons fully first (a separate, prior project state)
+      await migrate(root); // scaffold team-lessons fully first (a separate, prior project state)
       const settingsPath = path.join(root, '.claude', 'settings.json');
       assert.equal(existsSync(settingsPath), false, 'sanity check: absent before the run under test');
 
-      const result = migrate(root, { dryRun }); // the run under test
+      const result = await migrate(root, { dryRun }); // the run under test
 
       assert.equal(
         existsSync(settingsPath),
@@ -853,7 +860,7 @@ describe('migrate() — team-lessons hook detection', () => {
     }
   });
 
-  test('dry-run and a real run report identical hook notices, before and after team-lessons is scaffolded', () => {
+  test('dry-run and a real run report identical hook notices, before and after team-lessons is scaffolded', async () => {
     const scenarios = [
       { hooks: {} },
       { hooks: { SessionStart: [hookEntryFor(DEFAULT_COMMAND)] } },
@@ -874,31 +881,31 @@ describe('migrate() — team-lessons hook detection', () => {
       applyMinimalManifest(freshRoot);
       writeRawSettings(freshRoot, settings);
       assert.deepEqual(
-        hookNoticesOf(migrate(freshRoot, { dryRun: true })),
-        hookNoticesOf(migrate(freshRoot, { dryRun: false })),
+        hookNoticesOf(await migrate(freshRoot, { dryRun: true })),
+        hookNoticesOf(await migrate(freshRoot, { dryRun: false })),
         `pre-scaffold case disagreed for ${JSON.stringify(settings)}`,
       );
 
       // Case B — team-lessons was already scaffolded by an earlier migrate().
       const scaffoldedRoot = makeProject();
       applyMinimalManifest(scaffoldedRoot);
-      migrate(scaffoldedRoot);
+      await migrate(scaffoldedRoot);
       writeRawSettings(scaffoldedRoot, settings);
       assert.deepEqual(
-        hookNoticesOf(migrate(scaffoldedRoot, { dryRun: true })),
-        hookNoticesOf(migrate(scaffoldedRoot, { dryRun: false })),
+        hookNoticesOf(await migrate(scaffoldedRoot, { dryRun: true })),
+        hookNoticesOf(await migrate(scaffoldedRoot, { dryRun: false })),
         `post-scaffold case disagreed for ${JSON.stringify(settings)}`,
       );
     }
   });
 
-  test('a hook-only notice does not change exitCode semantics under --dry-run', () => {
+  test('a hook-only notice does not change exitCode semantics under --dry-run', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
-    migrate(root); // scaffold everything first, so only the hook step can produce a notice
+    await migrate(root); // scaffold everything first, so only the hook step can produce a notice
     writeRawSettings(root, { hooks: {} }); // both events unregistered
 
-    const dryResult = migrate(root, { dryRun: true });
+    const dryResult = await migrate(root, { dryRun: true });
 
     assert.ok(hookNoticesOf(dryResult).length > 0, 'sanity check: a notice actually fired');
     assert.equal(dryResult.pending, 0, 'a notice-only finding must not count as pending work');
@@ -941,11 +948,44 @@ describe('ccteams migrate — CLI integration', () => {
     const root = makeProject();
     applyMinimalManifest(root);
 
-    for (const badArgs of [['migrate', '--bogus'], ['migrate', '--yes'], ['migrate', '--force']]) {
+    for (const badArgs of [['migrate', '--bogus'], ['migrate', '--dry-run', '--bogus']]) {
       const result = runCli(badArgs, root);
       assert.equal(result.status, 1, `expected ${badArgs.join(' ')} to exit 1`);
       assert.match(result.stdout + result.stderr, /Usage: ccteams migrate/);
     }
+  });
+
+  test('"migrate --yes" alone is accepted (not rejected as an unknown flag)', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+
+    const result = runCli(['migrate', '--yes'], root);
+
+    assert.equal(result.status, 0);
+    assert.doesNotMatch(result.stdout + result.stderr, /Unknown option/);
+  });
+
+  test('"migrate --force" without "--yes" is rejected with exit 1 and a specific message (not the generic usage text)', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+
+    const result = runCli(['migrate', '--force'], root);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /"--force" only takes effect together with "--yes"/);
+    // This is a DIFFERENT failure than an unrecognized flag — it must not be
+    // reported via the generic "Unknown option(s)" / usage-dump path.
+    assert.doesNotMatch(result.stderr, /Unknown option/);
+  });
+
+  test('"migrate --yes --force" is accepted together', () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+
+    const result = runCli(['migrate', '--yes', '--force'], root);
+
+    assert.equal(result.status, 0);
+    assert.doesNotMatch(result.stdout + result.stderr, /only takes effect together/);
   });
 
   test('"ccteams --help" usage text includes migrate', () => {
@@ -953,6 +993,8 @@ describe('ccteams migrate — CLI integration', () => {
     assert.equal(result.status, 0);
     assert.match(result.stdout, /ccteams migrate/);
     assert.match(result.stdout, /--dry-run/);
+    assert.match(result.stdout, /ccteams migrate --yes\b/);
+    assert.match(result.stdout, /ccteams migrate --yes --force/);
   });
 
   test('"migrate" on a squatting file exits 1 with a clean Error line, no stack trace, on stderr', () => {
