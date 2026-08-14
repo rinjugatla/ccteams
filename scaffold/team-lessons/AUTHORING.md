@@ -156,16 +156,20 @@ If your project has a task runner, add a shortcut — e.g. in `package.json`:
 
 ## Migrating a pre-existing SKILL.md
 
-If this skill was scaffolded by an older ccteams and your `SKILL.md` holds the
-lessons inline (no `team-lessons:catalog:*` markers):
+If this skill was scaffolded by an older ccteams, `SKILL.md` may not have a
+usable pair of `team-lessons:catalog:*` markers: one or both markers may be
+missing (an early scaffold held the lessons inline), or no end marker follows
+the start marker — a reversed pair lands here too. Either way:
 
 1. Move each entry into its own `lessons/NN-slug.md` with the frontmatter above.
-2. Replace the catalog section of `SKILL.md` with the two marker lines:
+2. Put the two marker lines where the catalog belongs — replacing whatever
+   catalog text is still there — in this order:
    ```markdown
    <!-- team-lessons:catalog:start -->
    <!-- team-lessons:catalog:end -->
    ```
 3. Run the generator; it fills the space between the markers.
 
-The generator refuses to run if the markers are missing, so a half-finished
-migration fails loudly instead of writing a mangled file.
+The generator refuses to run until `SKILL.md` contains both markers, in this
+order, so a half-finished migration fails loudly instead of writing a mangled
+file.
