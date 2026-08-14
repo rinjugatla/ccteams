@@ -7,8 +7,9 @@ the index.
 
 ## Layout (SKILL.md = index, lessons/ = bodies)
 
-- `SKILL.md` — the generated index. One line per lesson: the symptom (linked to
-  its file) → the one-line correct move.
+- `SKILL.md` — the generated index. One entry per lesson, headed by WHEN to
+  read it, with the symptom (linked to its file) and the one-line correct move
+  underneath.
 - `lessons/NN-slug.md` — one lesson per file, holding the full
   symptom → wrong instinct → correct move write-up.
 - `scripts/gen-lessons.mjs` — builds the index from the lessons' frontmatter.
@@ -32,15 +33,21 @@ lesson's own frontmatter makes drift impossible to commit undetected.
 
 Write lessons in **this project's primary language — the one its README is
 written in**, not the language ccteams shipped this file in. That applies to the
-lesson body and to the `symptom` / `summary` values that become the index lines.
-The catalog is read by everyone working in the repo, human and agent alike, so
-it should read like the rest of the repo; a catalog in a different language from
-the README gets skimmed and then ignored. Keep technical terms, commands, file
-paths, and identifiers in their original form rather than translating them.
+lesson body and to the `applies_when` / `symptom` / `summary` values that
+become the index lines. The catalog is read by everyone working in the repo,
+human and agent alike, so it should read like the rest of the repo; a catalog
+in a different language from the README gets skimmed and then ignored. Keep
+technical terms, commands, file paths, and identifiers in their original form
+rather than translating them.
 
 The mechanical parts stay ASCII whatever the prose language: frontmatter keys
-(`id`, `slug`, `symptom`, `summary`, `refs`) and the `slug` in `NN-slug.md` are
-lowercase kebab-case, so filenames and links stay predictable everywhere.
+(`id`, `slug`, `applies_when`, `symptom`, `summary`, `refs`) are lowercase
+**snake_case** (never kebab-case — a key typo'd as `applies-when` is silently
+ignored by the parser rather than erroring, which just falls back to the
+legacy heading for that lesson with a stderr warning, so it is worth getting
+right). The `slug` value itself, and the `slug` part of the `NN-slug.md`
+filename, are lowercase **kebab-case** — so filenames and links stay
+predictable everywhere.
 
 ## Frontmatter schema (every file in `lessons/`)
 
@@ -48,16 +55,39 @@ lowercase kebab-case, so filenames and links stay predictable everywhere.
 ---
 id: 7
 slug: worktree-wrong-landing
+applies_when: <the moment in the work to read this — becomes the index heading>
 symptom: <the situation, as the reader will recognize it — becomes the index link text>
-summary: <the correct move in one line — becomes the text after the → in the index>
+summary: <the correct move in one line — becomes the index's summary line>
 refs: [PR #52, Issue #66]
 ---
 ```
 
 - `id` — integer, must be unique; sets the index order (not the filename order).
 - `slug` — matches the `slug` part of `NN-slug.md`.
+- `applies_when` — the moment in the work where the reader should stop and
+  check this lesson, written as the index heading a scan can rule in or out
+  from its first line. **Write it as an action, not a role.** Prefer the
+  action over the role: a reviewer doing the same action needs the same
+  lesson just as much as a builder does. Splitting by role instead of action
+  means a lesson silently fails to reach whichever role wrote it out —
+  usually the reviewer, since a lesson is normally written from the builder's
+  own situation first. Phrasing by role adds a filter that doesn't actually
+  distinguish who needs the lesson, only a risk of leaving someone out. Prefer:
+  ```yaml
+  # ✗ scoped to a role — a reviewer doing the same thing gets skipped
+  applies_when: when you're the builder
+
+  # ✓ scoped to the action — applies to builder and reviewer alike
+  applies_when: when writing an E2E spec / when reviewing one
+  ```
+  Required for new lessons (see the learning loop below); optional on
+  older files — `gen-lessons.mjs` warns but does not fail when it is absent,
+  and the index falls back to the pre-`applies_when` heading for that entry.
+  Avoid `**bold**` or other Markdown emphasis inside the value: the index
+  already wraps it in `**…**`, and a nested `**` breaks the rendered heading.
 - `symptom` / `summary` — required and non-empty; the generator fails loudly
-  rather than emitting a blank index line.
+  rather than emitting a blank index line. The same `**bold**` caveat applies
+  to `symptom`, which is also wrapped in `**…**` in the index.
 - `refs` — related issues/PRs; use `[]` when there are none.
 
 ## Learning loop (how an entry gets added)
@@ -68,9 +98,11 @@ the team playbook nor this catalog predicted.
 1. **Check for a duplicate first.** Keep it lean — if an existing lesson (or the
    team playbook) already covers the case, sharpen that one instead of adding a
    near-duplicate. A bloated catalog gets skimmed, not followed.
-2. Create `lessons/NN-slug.md` with the next `id`, the frontmatter above, and a
-   body structured as symptom → wrong instinct → correct move. Cross-link
-   related lessons as `[NN-slug.md](NN-slug.md)`.
+2. Create `lessons/NN-slug.md` with the next `id`, the frontmatter above — including
+   `applies_when`, which is required for every new lesson, phrased as an action
+   rather than a role (see above) — and a body structured as symptom → wrong
+   instinct → correct move. Cross-link related lessons as
+   `[NN-slug.md](NN-slug.md)`.
 3. Regenerate the index:
    ```
    node .claude/skills/team-lessons/scripts/gen-lessons.mjs

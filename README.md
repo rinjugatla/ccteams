@@ -170,7 +170,7 @@ Playbooks are living documents: the working method's learning loop instructs the
 
 ```
 .claude/skills/team-lessons/
-├── SKILL.md                     # generated index — one line per lesson
+├── SKILL.md                     # generated index — one short entry per lesson
 ├── AUTHORING.md                 # frontmatter schema + how to add an entry (read only when writing)
 ├── lessons/                     # one lesson per file: NN-slug.md
 └── scripts/
@@ -178,9 +178,9 @@ Playbooks are living documents: the working method's learning loop instructs the
     └── lessons-index.mjs        # prints the index for a Claude Code hook (see below)
 ```
 
-**Why it is split.** A single-file catalog grows without bound, and the whole file is loaded into context every time the catalog is consulted — so an old lesson nobody needs today still costs tokens on every task. Splitting it caps the always-loaded cost at one line per lesson (`symptom → correct move`, linked to the detail file), and keeps `AUTHORING.md` out of the read path entirely: it is read when writing a lesson, not when applying one.
+**Why it is split.** A single-file catalog grows without bound, and the whole file is loaded into context every time the catalog is consulted — so an old lesson nobody needs today still costs tokens on every task. Splitting it caps the always-loaded cost at a few lines per lesson (`applies_when → symptom → correct move`, linked to the detail file), and keeps `AUTHORING.md` out of the read path entirely: it is read when writing a lesson, not when applying one.
 
-**Why the index is generated.** A hand-written index drifts the moment a lesson is added, renumbered, or reworded, and a stale index sends agents to the wrong lesson — or hides one. `scripts/gen-lessons.mjs` derives the index from each lesson's own frontmatter (`symptom` / `summary`), so there is nothing to keep in sync by hand:
+**Why the index is generated.** A hand-written index drifts the moment a lesson is added, renumbered, or reworded, and a stale index sends agents to the wrong lesson — or hides one. `scripts/gen-lessons.mjs` derives the index from each lesson's own frontmatter (`applies_when` / `symptom` / `summary`), so there is nothing to keep in sync by hand:
 
 ```bash
 # regenerate the index (run after adding or editing a lesson, commit the result)
