@@ -157,9 +157,9 @@ If your project has a task runner, add a shortcut — e.g. in `package.json`:
 ## Migrating a pre-existing SKILL.md
 
 If this skill was scaffolded by an older ccteams, `SKILL.md` may not have a
-usable pair of `team-lessons:catalog:*` markers: either marker may be absent
-(an early scaffold held the lessons inline), or no end marker follows the
-start marker — a reversed pair lands here too. Either way:
+usable pair of `team-lessons:catalog:*` markers: one or both markers may be
+missing (an early scaffold held the lessons inline), or no end marker follows
+the start marker — a reversed pair lands here too. Either way:
 
 1. Move each entry into its own `lessons/NN-slug.md` with the frontmatter above.
 2. Put the two marker lines where the catalog belongs — replacing whatever
