@@ -20,8 +20,8 @@ the learning loop) is in [`AUTHORING.md`](AUTHORING.md).
 
 ## Failure catalog — symptom → correct move
 
-<!-- team-lessons:catalog:start -->
 <!-- Generated from lessons/*.md frontmatter by scripts/gen-lessons.mjs — do not edit by hand. -->
+<!-- team-lessons:catalog:start -->
 
 (none yet)
 <!-- team-lessons:catalog:end -->

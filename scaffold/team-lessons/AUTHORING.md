@@ -12,6 +12,12 @@ the index.
 - `lessons/NN-slug.md` — one lesson per file, holding the full
   symptom → wrong instinct → correct move write-up.
 - `scripts/gen-lessons.mjs` — builds the index from the lessons' frontmatter.
+- `scripts/lessons-index.mjs` — prints just the index to stdout, so a Claude
+  Code hook (`SessionStart` / `SubagentStart`) can inject it into every session
+  and subagent instead of relying on someone remembering to paste it. Registering
+  the hook is a step you take yourself, in `.claude/settings.json`; see the
+  team-lessons section of the ccteams README for the exact snippet. It prints
+  nothing while `lessons/` is empty.
 - The section between `<!-- team-lessons:catalog:start -->` and
   `<!-- team-lessons:catalog:end -->` is **generated**. Never hand-edit it; the
   next generator run silently discards your changes. Everything outside the
