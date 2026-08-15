@@ -76,6 +76,7 @@ describe('scaffoldTeamLessons', () => {
       'lessons/.gitkeep',
       'scripts/gen-lessons.mjs',
       'scripts/lessons-index.mjs',
+      'scripts/template-version.mjs',
     ]);
     assert.deepEqual(result.preserved, []);
     // Nothing pre-existed, so there is no legacy layout to report either way.
@@ -96,7 +97,7 @@ describe('scaffoldTeamLessons', () => {
 
     const second = scaffoldTeamLessons(dest);
     assert.deepEqual(second.created, []);
-    assert.equal(second.preserved.length, 5);
+    assert.equal(second.preserved.length, 6);
     assert.equal(readFileSync(skillPath, 'utf8'), edited);
   });
 
@@ -113,6 +114,7 @@ describe('scaffoldTeamLessons', () => {
       'lessons/.gitkeep',
       'scripts/gen-lessons.mjs',
       'scripts/lessons-index.mjs',
+      'scripts/template-version.mjs',
     ]);
     assert.equal(readFileSync(path.join(dest, 'SKILL.md'), 'utf8'), OLD_STYLE_SKILL);
     // No catalog markers → the generator would refuse to run, so `use` reports

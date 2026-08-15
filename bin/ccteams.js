@@ -308,8 +308,15 @@ Migrate:
   ccteams-owned files (agent definitions, playbook skills, the shared working-method
   skill) CAN be overwritten: an upstream-changed file (your copy still matches what
   ccteams placed; only the package moved on) updates automatically, a file you
-  edited is left alone unless you confirm interactively or pass --yes --force. Your
-  user-owned .claude/skills/team-lessons/ is never touched. Nothing is ever deleted.
+  edited is left alone unless you confirm interactively or pass --yes --force.
+
+  Inside .claude/skills/team-lessons/, SKILL.md and lessons/ are yours and are never
+  read, rewritten, or deleted under any flag. The tooling ccteams ships beside them
+  (AUTHORING.md and scripts/) IS refreshed, on the same terms: silently only when
+  ccteams can verify your copy is an untouched version it shipped, otherwise left
+  alone and reported until you confirm or pass --yes --force.
+
+  Nothing is ever deleted.
 
 Examples:
   ccteams list

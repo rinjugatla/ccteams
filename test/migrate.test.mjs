@@ -29,7 +29,7 @@ import {
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = path.join(REPO_ROOT, 'bin', 'ccteams.js');
 
-// The five files scaffoldTeamLessons() ships (see scaffold/team-lessons/), kept
+// The six files scaffoldTeamLessons() ships (see scaffold/team-lessons/), kept
 // as a literal list here matching the convention in scaffold-team-lessons.test.mjs.
 const EXPECTED_SCAFFOLD_FILES = [
   'AUTHORING.md',
@@ -37,6 +37,7 @@ const EXPECTED_SCAFFOLD_FILES = [
   'lessons/.gitkeep',
   'scripts/gen-lessons.mjs',
   'scripts/lessons-index.mjs',
+  'scripts/template-version.mjs',
 ];
 
 /** Create a fresh temp project directory (already exists on disk). */
@@ -217,14 +218,34 @@ describe('migrate()', () => {
     }
     assert.equal(Object.keys(before).length, 2, 'sanity check: fixture set up two hand-written files');
 
-    // The three files that were missing got added; the two hand-written ones were kept.
+    // Three of the four missing files got added; the two hand-written ones were
+    // kept. scripts/template-version.mjs is NOT among them, deliberately: the
+    // hand-written gen-lessons.mjs above matches no version ccteams shipped, so
+    // teamLessonsTemplateStep withholds the generation marker (see THE MARKER
+    // INVARIANT in lib/migrate.js). Writing it here would assert "every
+    // ccteams-owned file is current at generation N" while one of them plainly
+    // is not, and would freeze that file as up-to-date for every later run.
     assert.deepEqual(
       scaffoldStepOf(result).added.slice().sort(),
       ['AUTHORING.md', 'lessons/.gitkeep', 'scripts/lessons-index.mjs'].sort(),
     );
-    assert.deepEqual(
-      scaffoldStepOf(result).kept.slice().sort(),
-      ['SKILL.md', 'scripts/gen-lessons.mjs'].sort(),
+    assert.ok(
+      !scaffoldStepOf(result).kept.includes('scripts/template-version.mjs'),
+      'a withheld file must not be reported as kept either — it was not handled at all',
+    );
+    // Only SKILL.md. scripts/gen-lessons.mjs is a ccteams-OWNED file, and this
+    // run is an outdated-generation one, so teamLessonsTemplateStep owns the
+    // verdict on it and reports it in its own notices — the scaffold step
+    // withholds it rather than adding a second, contradictory
+    // "= scripts/gen-lessons.mjs (kept as-is)" line to the same report.
+    // (The byte-for-byte assertion above is what still proves it was not
+    // touched; this only pins WHO reports it.)
+    assert.deepEqual(scaffoldStepOf(result).kept.slice().sort(), ['SKILL.md']);
+    assert.ok(
+      stepById(result, 'team-lessons-template')
+        .notices.join('\n')
+        .includes('scripts/gen-lessons.mjs'),
+      'the file must still be reported — by the step that actually judged it',
     );
   });
 
@@ -254,6 +275,9 @@ describe('migrate()', () => {
     // Full-directory equality: dry-run must add ZERO files, unlike the
     // never-overwrite test above (which allows new files to appear).
     assert.deepEqual(after, before);
+    // 3, not 4: the hand-written gen-lessons.mjs makes teamLessonsTemplateStep
+    // withhold scripts/template-version.mjs (see THE MARKER INVARIANT in
+    // lib/migrate.js), and dry-run must predict exactly what a real run does.
     assert.equal(result.pending, 3);
     assert.equal(result.exitCode, 1);
   });
@@ -336,7 +360,7 @@ describe('migrate()', () => {
 
     assert.equal(result.success, false);
     assert.equal(result.exitCode, 1);
-    assert.equal(result.pending, 0, 'must not report 5 addable files for a destination it cannot write to');
+    assert.equal(result.pending, 0, 'must not report 6 addable files for a destination it cannot write to');
     assert.match(result.message, /team-lessons/);
   });
 
@@ -346,14 +370,17 @@ describe('migrate()', () => {
    * walks that same `steps` array, printing a heading for each step that has
    * something to report (empty steps are skipped — see the rows/notices guard
    * in formatMigrateReport), so reordering the array reorders the report.
-   * lib/migrate.js also documents a real dependency between two of them —
-   * teamLessonsHookStep's header, and the DESIGN-D note on
-   * lessonsIndexWillExist, both state that teamLessonsScaffoldStep must run
-   * BEFORE it.
+   * lib/migrate.js also documents two real dependencies here — MIGRATION_STEPS'
+   * own comment states that teamLessonsTemplateStep must run BEFORE
+   * teamLessonsScaffoldStep (otherwise the scaffold step places the current
+   * generation marker into an old project and the generation check reads it as
+   * "current"), and teamLessonsHookStep's header plus the DESIGN-D note on
+   * lessonsIndexWillExist state that teamLessonsScaffoldStep must run before
+   * the hook step.
    *
    * Nothing else in this suite pins that order: every other test looks steps
    * up by id (see stepById above), which is order-insensitive by design. This
-   * test is the pin. It also exists to go red the day a fourth step is added,
+   * test is the pin. It also exists to go red the day a fifth step is added,
    * forcing an explicit decision about where the new heading belongs in the
    * report rather than letting the position fall out of wherever the new entry
    * was appended to the array literal.
@@ -372,7 +399,7 @@ describe('migrate()', () => {
 
     assert.deepEqual(
       result.steps.map((s) => s.id),
-      ['team-lessons-scaffold', 'team-lessons-hook', 'ccteams-owned-files'],
+      ['team-lessons-template', 'team-lessons-scaffold', 'team-lessons-hook', 'ccteams-owned-files'],
     );
   });
 });
