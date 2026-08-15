@@ -405,7 +405,7 @@ Runs the test files `package.json`'s `test` script enumerates, via `node --test`
 
 ## License
 
-MIT © toffyui. See [LICENSE](./LICENSE) for the full text.
+MIT © toffyui, rinjugatla. See [LICENSE](./LICENSE) for the full text.
 
 ## Orynth
 

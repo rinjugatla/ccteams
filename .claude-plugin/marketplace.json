@@ -1,6 +1,6 @@
 {
   "name": "ccteams",
-  "owner": { "name": "toffyui" },
+  "owner": { "name": "rinjugatla" },
   "description": "Agent-team package manager for Claude Code — switch agent teams like nvm switches Node versions.",
   "plugins": [
     {
