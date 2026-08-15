@@ -162,12 +162,12 @@ describe('loadLessons', () => {
     assert.equal(lessons[0].appliesWhen, '');
 
     const catalog = renderCatalog(lessons);
-    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
-    // Stated explicitly as well as via the equality above: these are the two
-    // shapes a leaked empty value produces, and naming them keeps the intent
-    // legible if the surrounding format ever changes.
+    // These two name the exact shapes a leaked empty value produces, and are
+    // asserted before the equality below so that a regression reports as "a
+    // blank heading was rendered" rather than the vaguer "output differs".
     assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
     assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
+    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
   });
 
   test('treats an array-notation "applies_when" as empty and renders the legacy heading', () => {
@@ -184,9 +184,9 @@ describe('loadLessons', () => {
     assert.equal(lessons[0].appliesWhen, '');
 
     const catalog = renderCatalog(lessons);
-    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
     assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
     assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
+    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
   });
 
   // `applies_when: []` is the same authoring slip as `[a, b]` but reaches the
@@ -214,6 +214,8 @@ describe('loadLessons', () => {
     assert.equal(lessons[1].appliesWhen, '');
 
     const catalog = renderCatalog(lessons);
+    assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
+    assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
     assert.equal(
       catalog,
       [
@@ -224,8 +226,6 @@ describe('loadLessons', () => {
         '   - summary: M B',
       ].join('\n'),
     );
-    assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
-    assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
   });
 });
 
@@ -632,12 +632,17 @@ describe('CLI', () => {
 
     assert.equal(run(root).status, 0);
     const skill = readFileSync(skillPath, 'utf8');
-    assert.ok(skill.includes(LEGACY_ENTRY), `legacy fallback entry missing from: ${JSON.stringify(skill)}`);
+    // The two invariants are asserted BEFORE the positive check on purpose. A
+    // regression that leaks the raw value into the heading breaks both, and
+    // whichever assertion runs first is the one that reports — so putting the
+    // narrower "no blank heading" checks first makes the failure message name
+    // the actual defect instead of the more generic "expected entry missing".
     assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
     assert.ok(
       !BLANK_INDEX_HEADING.test(skill),
       `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
     );
+    assert.ok(skill.includes(LEGACY_ENTRY), `legacy fallback entry missing from: ${JSON.stringify(skill)}`);
 
     const result = run(root, ['--check']);
     assert.equal(result.status, 0);
@@ -655,12 +660,17 @@ describe('CLI', () => {
 
     assert.equal(run(root).status, 0);
     const skill = readFileSync(skillPath, 'utf8');
-    assert.ok(skill.includes(LEGACY_ENTRY), `legacy fallback entry missing from: ${JSON.stringify(skill)}`);
+    // The two invariants are asserted BEFORE the positive check on purpose. A
+    // regression that leaks the raw value into the heading breaks both, and
+    // whichever assertion runs first is the one that reports — so putting the
+    // narrower "no blank heading" checks first makes the failure message name
+    // the actual defect instead of the more generic "expected entry missing".
     assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
     assert.ok(
       !BLANK_INDEX_HEADING.test(skill),
       `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
     );
+    assert.ok(skill.includes(LEGACY_ENTRY), `legacy fallback entry missing from: ${JSON.stringify(skill)}`);
 
     const result = run(root, ['--check']);
     assert.equal(result.status, 0);
@@ -679,6 +689,16 @@ describe('CLI', () => {
 
     assert.equal(run(root).status, 0);
     const skill = readFileSync(skillPath, 'utf8');
+    // Invariants first, so the blank-heading defect is what gets reported (see
+    // the note on the whitespace-only scenario above). On this two-entry root
+    // they are genuinely independent of the positive checks below: entry 1 can
+    // render perfectly while entry 2 loses its heading, which is exactly the
+    // state a loosened guard produces.
+    assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
+    assert.ok(
+      !BLANK_INDEX_HEADING.test(skill),
+      `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
+    );
     // The healthy lesson keeps its `applies_when` heading...
     assert.ok(
       skill.includes('1. **When W A**\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A'),
@@ -688,11 +708,6 @@ describe('CLI', () => {
     assert.ok(
       skill.includes('2. **[S B](lessons/02-b.md)**\n   - summary: M B'),
       `legacy fallback entry missing from: ${JSON.stringify(skill)}`,
-    );
-    assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
-    assert.ok(
-      !BLANK_INDEX_HEADING.test(skill),
-      `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
     );
 
     const result = run(root, ['--check']);
