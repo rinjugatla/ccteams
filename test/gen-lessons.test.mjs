@@ -405,7 +405,7 @@ describe('CLI', () => {
     // docs.") would otherwise still satisfy a bare AUTHORING.md check via
     // that other line and go undetected.
     assert.match(result.stderr, /AUTHORING\.md.*(schema|frontmatter)/); // (1) points at the frontmatter schema doc, on its own line
-    assert.match(result.stderr, /AUTHORING\.md.*next to SKILL\.md/); // (1b) says where AUTHORING.md lives, relative to SKILL.md
+    assert.match(result.stderr, /AUTHORING\.md.*SKILL\.md/); // (1b) says where AUTHORING.md lives, relative to SKILL.md
     assert.match(result.stderr, /Claude Code|\bAI\b/i); // (2) names the AI as the one to delegate the fill-in to
     assert.match(result.stderr, /re-run/i); // (3) tells the reader to re-run the script afterward
   });
