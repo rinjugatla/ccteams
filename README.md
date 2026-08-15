@@ -221,6 +221,27 @@ node .claude/skills/team-lessons/scripts/gen-lessons.mjs --check
 
 The index is committed rather than built on demand, because agents read the repo, not a build output. `--check` is what keeps a committed generated file honest — it also catches a hand-edit between the `<!-- team-lessons:catalog:* -->` markers. The script is plain Node ESM with zero dependencies, so it works in any project with Node installed, whatever its language or package manager.
 
+> [!IMPORTANT]
+> **Prettier compatibility.** If your project runs prettier over `.claude/**`, the generated `SKILL.md` index must be a *fixed point* of your prettier config — otherwise `prettier --write` and `gen-lessons.mjs --check` rewrite each other's output and neither ever goes green (the deadlock fixed in v9 of this tooling, Issue [#68](https://github.com/rinjugatla/ccteams/issues/68)). Verified against prettier 3.8.3:
+>
+> | Prettier setting | Supported | Behavior |
+> | --- | --- | --- |
+> | Default settings | ✅ | Generated index round-trips byte-identical |
+> | `--use-tabs` | ✅ | List indentation is emitted as spaces by prettier's markdown printer either way |
+> | `--print-width <any>` (alone) | ✅ | `proseWrap` defaults to `preserve`, so width alone never reflows the index |
+> | `--end-of-line crlf` | ✅ | The file becomes CRLF on disk, but `--check` normalizes CRLF before comparing |
+> | `--prose-wrap never` | ✅ | Only hand-written prose *outside* the catalog markers is joined; `--check` compares the generated block only |
+> | `--prose-wrap always` | ❌ | Index lines longer than `printWidth` get reflowed → `--check` fails permanently |
+> | `--tab-width` other than 2 | ❌ | Sub-list indentation (3 spaces under a single-digit `N.`) gets re-indented → `--check` fails permanently |
+>
+> **Workaround for the unsupported settings**: exclude the generated index from prettier by adding it to `.prettierignore`:
+>
+> ```
+> .claude/skills/team-lessons/SKILL.md
+> ```
+>
+> Prettier then leaves the index alone and `--check` keeps working unchanged. Two further cautions: (1) keep lesson `id`s contiguous — prettier renumbers ordered lists, so a gap (e.g. after deleting a lesson) breaks `--check` under *any* prettier config until you renumber ([#69](https://github.com/rinjugatla/ccteams/issues/69) tracks making the generator handle this); (2) avoid a bare `*` or `*emphasis*` inside a lesson's `applies_when` / `symptom` / `summary` — prettier rewrites it in the index (code spans like `` `.claude/**` `` are safe; see the caveats in `AUTHORING.md`).
+
 **Injecting the catalog via a hook.** Consulting the catalog only happens if an agent decides to open `SKILL.md`. `scripts/lessons-index.mjs` prints the catalog body to stdout (nothing if there are zero lessons yet), so wiring it into a Claude Code hook gets it into every session's and every subagent's context unconditionally, in `.claude/settings.json`:
 
 ```json
