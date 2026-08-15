@@ -370,13 +370,15 @@ describe('migrate()', () => {
    * walks that same `steps` array, printing a heading for each step that has
    * something to report (empty steps are skipped — see the rows/notices guard
    * in formatMigrateReport), so reordering the array reorders the report.
-   * lib/migrate.js also documents two real dependencies here — MIGRATION_STEPS'
+   * lib/migrate.js also documents three real dependencies here — MIGRATION_STEPS'
    * own comment states that teamLessonsTemplateStep must run BEFORE
    * teamLessonsScaffoldStep (otherwise the scaffold step places the current
    * generation marker into an old project and the generation check reads it as
-   * "current"), and teamLessonsHookStep's header plus the DESIGN-D note on
-   * lessonsIndexWillExist state that teamLessonsScaffoldStep must run before
-   * the hook step.
+   * "current"), that teamLessonsAppliesWhenStep must run after
+   * teamLessonsScaffoldStep so it inspects `lessons/**` in its final,
+   * fully-scaffolded state for this run, and teamLessonsHookStep's header plus
+   * the DESIGN-D note on lessonsIndexWillExist state that teamLessonsScaffoldStep
+   * must run before the hook step.
    *
    * Nothing else in this suite pins that order: every other test looks steps
    * up by id (see stepById above), which is order-insensitive by design. This
@@ -399,7 +401,13 @@ describe('migrate()', () => {
 
     assert.deepEqual(
       result.steps.map((s) => s.id),
-      ['team-lessons-template', 'team-lessons-scaffold', 'team-lessons-hook', 'ccteams-owned-files'],
+      [
+        'team-lessons-template',
+        'team-lessons-scaffold',
+        'team-lessons-applies-when',
+        'team-lessons-hook',
+        'ccteams-owned-files',
+      ],
     );
   });
 });
