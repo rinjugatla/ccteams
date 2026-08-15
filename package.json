@@ -5,7 +5,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/toffyui/ccteams.git"
+    "url": "git+https://github.com/rinjugatla/ccteams.git"
   },
   "bin": {
     "ccteams": "./bin/ccteams.js"
@@ -24,7 +24,7 @@
     "ai",
     "cli"
   ],
-  "author": "toffyui",
+  "author": "rinjugatla",
   "license": "MIT",
   "files": [
     "bin/",
