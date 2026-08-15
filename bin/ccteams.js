@@ -10,7 +10,7 @@
  *   migrate [--dry-run] [--yes] [--force]  Pick up files a newer ccteams ships that this
  *                       project is missing, or that ccteams itself placed and has since
  *                       updated (agent definitions, playbook/working-method skills)
- *   upgrade            Upgrade ccteams to the latest version via npm
+ *   upgrade            Upgrade ccteams to the latest version from this fork's Git repository
  */
 
 import fs from 'fs';
@@ -238,15 +238,18 @@ if (command === 'upgrade') {
   console.log(`Upgrading ccteams (current: ${currentVersion})...`);
   try {
     // stdio: 'inherit' pipes npm's output directly to the terminal so the user
-    // can see progress and any permission errors in real time.
-    execSync('npm install -g ccteams', { stdio: 'inherit' });
-    // Re-read package.json after the install to report the version that was actually
-    // installed, not the version that was running when upgrade was invoked.
+    // can see progress and any permission errors in real time. Installs from this
+    // fork's Git URL (not the npm registry) so upgrade never replaces this CLI
+    // with the unrelated upstream package published under the same name.
+    execSync('npm install -g https://github.com/rinjugatla/ccteams.git', { stdio: 'inherit' });
+    // The just-installed version can't be reported from this process (its
+    // package.json was read at startup), so point the user at `ccteams --version`.
     console.log(`\nccteams upgraded successfully. Run \`ccteams --version\` to confirm.`);
   } catch {
     console.error(
       '\nFailed to upgrade ccteams globally.\n' +
-        'If this is a permissions error, try: sudo npm install -g ccteams\n' +
+        'This install needs git on your PATH and network access to github.com.\n' +
+        'If this is a permissions error, try: sudo npm install -g https://github.com/rinjugatla/ccteams.git\n' +
         'Or use a Node version manager (nvm, fnm) to avoid needing sudo.',
     );
     process.exit(1);
@@ -275,7 +278,8 @@ Usage:
                                        edited untouched
   ccteams migrate --yes --force       Also overwrite files you edited (or whose baseline is
                                        unknown) without asking
-  ccteams upgrade                     Upgrade ccteams to the latest npm version
+  ccteams upgrade                     Upgrade ccteams to the latest version from this fork's
+                                       Git repository
   ccteams --version                   Print the ccteams version
 
 Multiple teams: "use" is additive — you can apply more than one team to the same

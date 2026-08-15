@@ -31,9 +31,9 @@ commands (its skills call the CLI under the hood). Install one or both.
 > [!IMPORTANT]
 > The install steps here differ from the `ccteams` package on the npm registry: that package
 > is the upstream one and does not include this fork's changes (manifest v4, `ccteams migrate`, and
-> more). Install from this repository's Git URL as shown below — **not** `npm install -g ccteams` —
-> and don't run `ccteams upgrade`, which reinstalls the npm package and would replace this
-> fork's CLI with the older upstream version.
+> more). Install from this repository's Git URL as shown below — **not** `npm install -g ccteams`,
+> which installs the unrelated upstream package instead. `ccteams upgrade` is safe to run: it
+> reinstalls from this fork's Git URL, so it always stays on this fork.
 
 ```bash
 npm install -g https://github.com/rinjugatla/ccteams.git
@@ -64,14 +64,16 @@ Or restart Claude Code. The slash commands `/ccteams:list-teams`, `/ccteams:use-
 ```bash
 # CLI (new commands, new bundled teams) — same Git-URL install as above
 npm install -g https://github.com/rinjugatla/ccteams.git
+# ...or equivalently: ccteams upgrade
 
 # Plugin (new or changed slash commands)
 /plugin marketplace update ccteams   # re-pull the latest from the repo
 /reload-plugins                       # or restart Claude Code
 ```
 
-Don't update with `ccteams upgrade` or `npm install -g ccteams@latest` — both pull the
-upstream npm package and replace this fork's CLI (see the note under [Install](#install)).
+Don't update with `npm install -g ccteams@latest` — that pulls the upstream npm package and
+replaces this fork's CLI (see the note under [Install](#install)). `ccteams upgrade` is
+equivalent to the Git-URL install above and is safe to use.
 
 A full uninstall/reinstall is **not** needed. New slash commands reach users when the
 plugin's `version` is bumped (the plugin is versioned via `plugin.json`); a marketplace
