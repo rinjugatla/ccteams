@@ -801,6 +801,62 @@ describe('migrate() — teamLessonsTemplateStep', () => {
       assert.ok(existsSync(relPathIn(dir, MARKER_REL)), 'the marker must be recorded once work is done');
     });
 
+    test('an existing marker is never advanced while another owned file is drifted', async () => {
+      // The SECOND half of THE MARKER INVARIANT (lib/migrate.js, the marker
+      // branch inside the per-file loop). The sibling test above covers a
+      // project with NO marker, where the withheld-paths set does the work.
+      // This one covers a project that ALREADY HAS one, where the only thing
+      // standing between the user and a permanently frozen template is the
+      // guard in that branch.
+      //
+      // Without it, run 1 advances the marker to the package's generation while
+      // AUTHORING.md is still the user's — after which every later run
+      // classifies the project 'current', returns before the per-file loop, and
+      // `--yes --force` can never repair it. That is exactly the freeze bug
+      // this issue exists to fix, just reached from a marker-bearing project.
+      const root = seedCurrentProject();
+      const dir = teamLessonsDir(root);
+      const markerPath = relPathIn(dir, MARKER_REL);
+      const authoringPath = relPathIn(dir, 'AUTHORING.md');
+      const older = packageTemplateVersion() - 1;
+      writeFileSync(markerPath, `export const TEAM_LESSONS_TEMPLATE_VERSION = ${older};\n`, 'utf8');
+      writeFileSync(authoringPath, '# my own authoring notes\n', 'utf8');
+
+      // Run 1: no yes/force/prompt. AUTHORING.md matches no shipped version, so
+      // it is deferred — and the marker must not move past it.
+      const first = await migrate(root);
+      assert.deepEqual(
+        templateStepOf(first).updated,
+        [],
+        'nothing may be written while the only outstanding file needs a decision',
+      );
+      assert.equal(
+        readTemplateVersion(markerPath),
+        older,
+        'the marker must not advance past an unresolved file — doing so freezes it as "current" forever',
+      );
+      assert.ok(
+        templateStepOf(first).notices.join('\n').includes('AUTHORING.md'),
+        'the deferred file must be reported',
+      );
+
+      // Run 2: the user does what run 1 told them to. Both the file AND the
+      // marker settle, in that order.
+      const second = await migrate(root, { yes: true, force: true });
+      const updated = templateStepOf(second).updated;
+      assert.ok(updated.includes('AUTHORING.md'), `expected AUTHORING.md in ${JSON.stringify(updated)}`);
+      assert.ok(updated.includes(MARKER_REL), `expected ${MARKER_REL} in ${JSON.stringify(updated)}`);
+      assert.ok(
+        readFileSync(authoringPath).equals(shippedBytes('AUTHORING.md')),
+        'the advice printed in run 1 must actually repair the file',
+      );
+      assert.equal(
+        readTemplateVersion(markerPath),
+        packageTemplateVersion(),
+        'only once nothing is outstanding may the marker record the current generation',
+      );
+    });
+
     test('answering "q" defers the finding rather than silencing it forever', async () => {
       const root = seedReformattedOldProject();
       const dir = teamLessonsDir(root);
@@ -818,7 +874,11 @@ describe('migrate() — teamLessonsTemplateStep', () => {
       assert.ok(notices.includes(GEN_REL), `expected ${GEN_REL} in:\n${notices}`);
     });
 
-    test('a --dry-run CI drift check stays red until the drift is actually resolved', async () => {
+    // NOT an exit-code guarantee: a file awaiting the user's decision
+    // deliberately does not affect exitCode (README's rule, and ownedFilesStep
+    // behaves the same). What must survive is the REPORTING — the drift has to
+    // keep being named on every later run instead of going quiet.
+    test('a --dry-run keeps reporting the drift until it is actually resolved', async () => {
       const root = seedReformattedOldProject();
 
       const beforeAnything = await migrate(root, { dryRun: true });
@@ -894,6 +954,32 @@ describe('migrate() — teamLessonsTemplateStep', () => {
     assert.ok(!scaffoldStep.added.includes('scripts/lessons-index.mjs'));
     assert.ok(!scaffoldStep.kept.includes('scripts/lessons-index.mjs'));
     assert.deepEqual(templateStepOf(result).updated, []);
+    // A path reported by no step's rows must at least be NAMED in the notice,
+    // or the user has no way to learn it was skipped.
+    assert.ok(
+      templateStepOf(result).notices.join('\n').includes('scripts/lessons-index.mjs'),
+      'the held-back file must be named, not merely alluded to',
+    );
+  });
+
+  test("'newer' claims nothing was held back when nothing actually was", async () => {
+    // The counterpart to the test above. On a complete install, withholding
+    // changes nothing, so the notice must not assert that ccteams "held back"
+    // files — a report may only claim what its own branch established.
+    const root = seedCurrentProject();
+    writeFileSync(
+      relPathIn(teamLessonsDir(root), MARKER_REL),
+      `export const TEAM_LESSONS_TEMPLATE_VERSION = ${packageTemplateVersion() + 5};\n`,
+      'utf8',
+    );
+
+    const notices = templateStepOf(await migrate(root)).notices.join('\n');
+
+    assert.ok(notices.includes('NEWER'), `sanity check: the downgrade is still reported:\n${notices}`);
+    assert.ok(
+      !/held back/i.test(notices),
+      `nothing was missing, so nothing was held back — got:\n${notices}`,
+    );
   });
 
   test('an unparsable marker falls back to content detection instead of being refreshed silently', async () => {
@@ -918,6 +1004,36 @@ describe('migrate() — teamLessonsTemplateStep', () => {
     const notices = templateStepOf(result).notices.join('\n');
     assert.ok(notices.includes(MARKER_REL), `the notice must name the marker file, got:\n${notices}`);
     assert.ok(notices.includes(GEN_REL));
+  });
+
+  test('an unparsable marker is the ONLY outstanding file and is still not refreshed silently', async () => {
+    // Deliberately narrower than the test above: there, gen-lessons.mjs is also
+    // drifted, so the marker branch's "is everything else resolved?" guard
+    // short-circuits and the `markerVersion !== null` gate is never evaluated.
+    // Here EVERY other owned file is byte-current, so the loop reaches that gate
+    // and it alone decides the outcome — which is what makes this test able to
+    // fail if the gate is ever weakened to an unconditional "refresh the
+    // marker".
+    const root = seedCurrentProject();
+    const dir = teamLessonsDir(root);
+    const markerPath = relPathIn(dir, MARKER_REL);
+    const garbage = "export const NOT_THE_MARKER = 'hello';\n";
+    writeFileSync(markerPath, garbage, 'utf8');
+
+    // Generation comes from the ledger: the three ledger files are all current,
+    // so this is recognized as the newest shipped content, marker notwithstanding.
+    const result = await migrate(root);
+
+    assert.deepEqual(
+      templateStepOf(result).updated,
+      [],
+      'a marker ccteams cannot parse is not its own bookkeeping — it must not be overwritten unasked',
+    );
+    assert.equal(readFileSync(markerPath, 'utf8'), garbage, 'the unparsable marker was silently rewritten');
+    assert.ok(
+      templateStepOf(result).notices.join('\n').includes(MARKER_REL),
+      'the marker must be reported as needing a decision',
+    );
   });
 
   test("an unreadable PACKAGE source blames ccteams' installation, not the project's file", async () => {
