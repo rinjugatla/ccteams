@@ -68,6 +68,21 @@ export const EMPTY_CATALOG = '(none yet)';
 // Tests point GEN_LESSONS_ROOT at a fixture directory instead.
 const DEFAULT_TEAM_LESSONS_ROOT = path.resolve(__dirname, '..');
 
+// Mirrors the NO_COLOR / FORCE_COLOR / isTTY convention used elsewhere in this
+// package (lib/update-check.js, bin/ccteams.js) rather than importing either:
+// this script is copied into a consuming project as a standalone, dependency-
+// free file (see DESIGN NOTES above), so it cannot reach back into `lib/` —
+// the small color check is duplicated here on purpose. Evaluated once at
+// module load, which is fine for both the real CLI (one warning batch per
+// process) and the tests (each scenario spawns a fresh child process, so the
+// env is re-read every time).
+const USE_COLOR = !process.env.NO_COLOR && (process.env.FORCE_COLOR ? true : !!process.stderr.isTTY);
+
+/** Wrap `line` in the warning color (yellow) when color is enabled, else return it unchanged. */
+function yellow(line) {
+  return USE_COLOR ? `\x1b[33m${line}\x1b[0m` : line;
+}
+
 /** Resolve `lessons/` and `SKILL.md` from the team-lessons root. */
 export function resolvePaths(teamLessonsRoot = process.env.GEN_LESSONS_ROOT || DEFAULT_TEAM_LESSONS_ROOT) {
   return {
@@ -155,9 +170,18 @@ export function loadLessons(lessonsDir) {
 
     const appliesWhen = typeof frontmatter.applies_when === 'string' ? frontmatter.applies_when : '';
     if (!appliesWhen) {
-      console.error(
-        `${file}: frontmatter "applies_when" is missing or empty — falling back to the legacy symptom-only index heading for this lesson. Add "applies_when: <when to read this>" when you next touch it.`,
-      );
+      // Each line is wrapped in its own color codes (rather than one pair
+      // around the whole block) so the escape sequences survive being split
+      // across lines by the terminal/log viewer instead of leaking an
+      // unterminated color into whatever prints next.
+      for (const line of [
+        `${file}: frontmatter "applies_when" is missing or empty — falling back to the legacy symptom-only index heading for this lesson.`,
+        `  See AUTHORING.md (next to SKILL.md) for the frontmatter schema (the "applies_when" field).`,
+        `  Ask Claude Code to read AUTHORING.md and fill in "applies_when: <when to read this>" for this lesson.`,
+        `  Then re-run this script to regenerate the index.`,
+      ]) {
+        console.error(yellow(line));
+      }
     }
 
     return {
