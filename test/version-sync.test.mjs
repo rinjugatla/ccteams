@@ -17,26 +17,34 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const PLUGIN_JSON_PATH = path.join(REPO_ROOT, 'plugins', 'ccteams', '.claude-plugin', 'plugin.json');
 
-const SEMVER_RE = /^\d+\.\d+\.\d+$/;
+/**
+ * Deliberately stricter than SemVer: plain MAJOR.MINOR.PATCH only, no
+ * prerelease or build identifiers (`1.2.3-beta.1`, `1.2.3+build` are
+ * rejected). This project has only ever shipped plain x.y.z versions, and
+ * the strict form keeps the equality check below unambiguous. Introducing a
+ * prerelease version would trip these tests on purpose — relax the pattern
+ * then, as a conscious decision.
+ */
+const VERSION_RE = /^\d+\.\d+\.\d+$/;
 
 const readJson = (filePath) => JSON.parse(readFileSync(filePath, 'utf8'));
 
 describe('version sync between package.json and plugin.json', () => {
-  test('package.json version is valid semver', () => {
+  test('package.json version is in MAJOR.MINOR.PATCH form', () => {
     const { version } = readJson(PACKAGE_JSON_PATH);
     assert.match(
       version,
-      SEMVER_RE,
-      `package.json "version" (${version}) is not in x.y.z semver format`,
+      VERSION_RE,
+      `package.json "version" (${version}) is not in plain MAJOR.MINOR.PATCH (x.y.z) form`,
     );
   });
 
-  test('plugin.json version is valid semver', () => {
+  test('plugin.json version is in MAJOR.MINOR.PATCH form', () => {
     const { version } = readJson(PLUGIN_JSON_PATH);
     assert.match(
       version,
-      SEMVER_RE,
-      `plugin.json "version" (${version}) is not in x.y.z semver format`,
+      VERSION_RE,
+      `plugin.json "version" (${version}) is not in plain MAJOR.MINOR.PATCH (x.y.z) form`,
     );
   });
 
