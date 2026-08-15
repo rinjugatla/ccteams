@@ -348,11 +348,19 @@ describe('CLI', () => {
 
   // The script resolves its paths from its own location, so tests redirect it
   // with GEN_LESSONS_ROOT rather than by changing cwd.
-  const run = (root, args = []) =>
-    spawnSync(process.execPath, [GENERATOR, ...args], {
-      encoding: 'utf8',
-      env: { ...process.env, GEN_LESSONS_ROOT: root },
-    });
+  //
+  // `envOverrides` lets color-related tests pin NO_COLOR / FORCE_COLOR
+  // explicitly. NO_COLOR / FORCE_COLOR are always cleared from the inherited
+  // env first (rather than merged in as-is): whatever happens to be set in
+  // the shell running `npm test` would otherwise leak into the child process
+  // and make the color assertions flaky.
+  const run = (root, args = [], envOverrides = {}) => {
+    const env = { ...process.env, GEN_LESSONS_ROOT: root };
+    delete env.NO_COLOR;
+    delete env.FORCE_COLOR;
+    Object.assign(env, envOverrides);
+    return spawnSync(process.execPath, [GENERATOR, ...args], { encoding: 'utf8', env });
+  };
 
   test('--check exits 1 when the committed index is stale', () => {
     assert.equal(run(makeRoot().root, ['--check']).status, 1);
@@ -378,6 +386,93 @@ describe('CLI', () => {
     assert.equal(result.status, 0);
     assert.match(result.stderr, /applies_when/);
     assert.match(result.stderr, /01-a\.md/);
+  });
+
+  test('the missing "applies_when" warning names AUTHORING.md, delegating to AI, and re-running', () => {
+    const { root } = makeRoot();
+    assert.equal(run(root).status, 0);
+
+    const result = run(root, ['--check']);
+    assert.equal(result.status, 0);
+    // Loose, wording-independent checks for the three required elements
+    // rather than matching the exact sentence, so future rewording of the
+    // message doesn't require touching this test.
+    //
+    // (1) is anchored to "schema"/"frontmatter" on the SAME line as
+    // "AUTHORING.md" rather than a bare /AUTHORING\.md/ test: the
+    // AI-delegation line (2) also mentions AUTHORING.md, so a mutation that
+    // replaces the schema-reference line with unrelated text (e.g. "See the
+    // docs.") would otherwise still satisfy a bare AUTHORING.md check via
+    // that other line and go undetected.
+    assert.match(result.stderr, /AUTHORING\.md.*(schema|frontmatter)/); // (1) points at the frontmatter schema doc, on its own line
+    assert.match(result.stderr, /AUTHORING\.md.*next to SKILL\.md/); // (1b) says where AUTHORING.md lives, relative to SKILL.md
+    assert.match(result.stderr, /Claude Code|\bAI\b/i); // (2) names the AI as the one to delegate the fill-in to
+    assert.match(result.stderr, /re-run/i); // (3) tells the reader to re-run the script afterward
+  });
+
+  test('the missing "applies_when" warning has no ANSI color when stderr is not a TTY (default)', () => {
+    const { root } = makeRoot();
+    assert.equal(run(root).status, 0);
+
+    const result = run(root, ['--check']);
+    assert.equal(result.status, 0);
+    // Assert the warning BODY is actually present, not just "no ANSI codes":
+    // a mutation that guards the whole console.error call behind `if
+    // (USE_COLOR)` (dropping the warning entirely when color is off) would
+    // otherwise still satisfy a bare "no \x1b[" check on empty stderr.
+    assert.match(result.stderr, /applies_when/);
+    assert.match(result.stderr, /AUTHORING\.md/);
+    assert.match(result.stderr, /re-run/i);
+    assert.ok(!result.stderr.includes('\x1b['), `expected no ANSI escapes, got: ${JSON.stringify(result.stderr)}`);
+  });
+
+  test('FORCE_COLOR=1 colors the warning yellow even when stderr is not a TTY', () => {
+    const { root } = makeRoot();
+    assert.equal(run(root).status, 0);
+
+    const result = run(root, ['--check'], { FORCE_COLOR: '1' });
+    assert.equal(result.status, 0);
+
+    // Each of the warning's 4 lines must be independently wrapped
+    // (start-yellow ... end-reset), not just "some \x1b[33m and some \x1b[0m
+    // exist somewhere in stderr": a mutation that colors only the first line
+    // and leaves the rest plain would still satisfy the looser check.
+    const lines = result.stderr.split('\n').filter(Boolean);
+    assert.equal(lines.length, 4, `expected 4 warning lines, got: ${JSON.stringify(result.stderr)}`);
+    for (const line of lines) {
+      assert.ok(
+        line.startsWith('\x1b[33m') && line.endsWith('\x1b[0m'),
+        `expected line wrapped in yellow/reset, got: ${JSON.stringify(line)}`,
+      );
+    }
+    // Exactly one open/reset pair per line — not merely present — so an
+    // unterminated (leaked) color code is caught too.
+    assert.equal((result.stderr.match(/\x1b\[33m/g) ?? []).length, 4);
+    assert.equal((result.stderr.match(/\x1b\[0m/g) ?? []).length, 4);
+  });
+
+  test('NO_COLOR takes precedence over FORCE_COLOR: no ANSI escapes when both are set', () => {
+    const { root } = makeRoot();
+    assert.equal(run(root).status, 0);
+
+    const result = run(root, ['--check'], { FORCE_COLOR: '1', NO_COLOR: '1' });
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /applies_when/);
+    assert.match(result.stderr, /AUTHORING\.md/);
+    assert.match(result.stderr, /re-run/i);
+    assert.ok(!result.stderr.includes('\x1b['), `expected no ANSI escapes, got: ${JSON.stringify(result.stderr)}`);
+  });
+
+  test('NO_COLOR=1 alone suppresses ANSI color (no FORCE_COLOR set)', () => {
+    const { root } = makeRoot();
+    assert.equal(run(root).status, 0);
+
+    const result = run(root, ['--check'], { NO_COLOR: '1' });
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /applies_when/);
+    assert.match(result.stderr, /AUTHORING\.md/);
+    assert.match(result.stderr, /re-run/i);
+    assert.ok(!result.stderr.includes('\x1b['), `expected no ANSI escapes, got: ${JSON.stringify(result.stderr)}`);
   });
 
   test('a lesson with "applies_when" renders the new heading, and --check stays exit 0', () => {
