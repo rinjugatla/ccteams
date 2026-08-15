@@ -26,4 +26,5 @@ the learning loop) is in [`AUTHORING.md`](AUTHORING.md).
 <!-- team-lessons:catalog:start -->
 
 (none yet)
+
 <!-- team-lessons:catalog:end -->

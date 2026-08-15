@@ -83,11 +83,23 @@ refs: [PR #52, Issue #66]
   Required for new lessons (see the learning loop below); optional on
   older files — `gen-lessons.mjs` warns but does not fail when it is absent,
   and the index falls back to the pre-`applies_when` heading for that entry.
-  Avoid `**bold**` or other Markdown emphasis inside the value: the index
-  already wraps it in `**…**`, and a nested `**` breaks the rendered heading.
+  Avoid a bare `*` or `*em*`-style Markdown emphasis inside the value. The
+  index heading embeds the value as plain text (`N. <applies_when>`, not
+  wrapped in bold — see `renderCatalog`'s doc comment in `gen-lessons.mjs`
+  for why bold was dropped), but a lone or unpaired `*` in that plain text is
+  still valid Markdown emphasis/list syntax, so a Markdown-aware formatter
+  (prettier) run over the committed `SKILL.md` reflows it into a
+  byte-different form it thinks is equivalent (e.g. `*em*` rewritten to
+  `_em_`, or a leading `* ` reparsed as a nested list marker) — one
+  `gen-lessons.mjs` can never reproduce, so `--check` fails forever on a
+  file both tools consider correct. A code span is fine: quoting a glob or
+  path as `` `.claude/**` `` round-trips untouched, because CommonMark never
+  treats characters inside backticks as emphasis.
 - `symptom` / `summary` — required and non-empty; the generator fails loudly
-  rather than emitting a blank index line. The same `**bold**` caveat applies
-  to `symptom`, which is also wrapped in `**…**` in the index.
+  rather than emitting a blank index line. The same bare-`*`/`*em*` caveat
+  applies to both: `symptom` lands in the index as `[<symptom>](...)` (link
+  text, not bold) and `summary` as plain text, and either can still collide
+  with a formatter's own emphasis parsing.
 - `refs` — related issues/PRs; use `[]` when there are none.
 
 ## Learning loop (how an entry gets added)

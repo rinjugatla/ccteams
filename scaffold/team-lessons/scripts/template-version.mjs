@@ -48,4 +48,4 @@
  * TEAM_LESSONS_HASH_LEDGER in lib/team-lessons-template.js — the test suite
  * fails otherwise.
  */
-export const TEAM_LESSONS_TEMPLATE_VERSION = 8;
+export const TEAM_LESSONS_TEMPLATE_VERSION = 9;

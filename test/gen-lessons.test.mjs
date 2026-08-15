@@ -29,17 +29,32 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const SCAFFOLD_TEAM_LESSONS = path.join(REPO_ROOT, 'scaffold', 'team-lessons');
 const GENERATOR = path.join(SCAFFOLD_TEAM_LESSONS, 'scripts', 'gen-lessons.mjs');
 
-// An entry whose heading holds nothing but whitespace: `1. ****` (an empty
-// `applies_when` reaching the heading) and `1. **   **` (a whitespace-only one
-// reaching it). Both are what the fallback exists to prevent — they read as an
-// unlabelled entry, and the reader loses the very first line the index is
-// supposed to let them rule the lesson out on. Matched with `m` so it finds the
-// offending entry anywhere in a multi-entry catalog (or in a whole SKILL.md).
+// An entry whose heading is nothing but the `N. ` marker itself, e.g. a bare
+// `1.` or `1. ` with no `applies_when`/symptom-link content after it — what
+// the fallback exists to prevent: it reads as an unlabelled entry, and the
+// reader loses the very first line the index is supposed to let them rule the
+// lesson out on. Matched with `m` so it finds the offending entry anywhere in
+// a multi-entry catalog (or in a whole SKILL.md).
+//
+// Since Issue #68 the heading is plain text (no `**…**` bold — see
+// renderCatalog's doc comment for why), so "blank" is just "nothing follows
+// the marker", not a leaked-empty pair of emphasis delimiters.
 //
 // The leading indent class is `[ \t]`, not `\s`: `\s` matches newlines too, so
-// with `m` it would happily span from a bare `1.` on one line to a `**  **` on
-// a later one and report a blank heading that no single line actually contains.
-const BLANK_INDEX_HEADING = /^[ \t]*\d+\.[ \t]+\*\*[ \t]*\*\*/m;
+// with `m` it would happily span from a bare `1.` on one line to trailing
+// whitespace on a later one and report a blank heading that no single line
+// actually contains.
+const BLANK_INDEX_HEADING = /^[ \t]*\d+\.[ \t]*$/m;
+
+// A heading wrapped in bold, e.g. `1. **When W A**` or `1. **[S A](...)**` —
+// the shape renderCatalog stopped producing (Issue #68; see its doc comment
+// for why). Matched on the heading's OWN opening `N. **`, not "no `**`
+// anywhere in the catalog": a healthy `applies_when` may legitimately quote a
+// glob in a code span containing `**` (e.g. `` `.claude/**` ``, asserted a
+// few lines below this constant's first use), so a blanket "catalog contains
+// no `**`" invariant would false-positive on that fixture the moment it
+// appears — which is exactly the shape line 258's own test uses.
+const BOLD_INDEX_HEADING = /^[ \t]*\d+\.[ \t]*\*\*/m;
 
 describe('parseFrontmatter', () => {
   test('parses key: value pairs and array values', () => {
@@ -165,9 +180,9 @@ describe('loadLessons', () => {
     // These two name the exact shapes a leaked empty value produces, and are
     // asserted before the equality below so that a regression reports as "a
     // blank heading was rendered" rather than the vaguer "output differs".
-    assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
+    assert.ok(!BOLD_INDEX_HEADING.test(catalog), `bold heading leaked into: ${JSON.stringify(catalog)}`);
     assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
-    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
+    assert.equal(catalog, '1. [S A](lessons/01-a.md)\n   - summary: M A');
   });
 
   test('treats an array-notation "applies_when" as empty and renders the legacy heading', () => {
@@ -184,9 +199,9 @@ describe('loadLessons', () => {
     assert.equal(lessons[0].appliesWhen, '');
 
     const catalog = renderCatalog(lessons);
-    assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
+    assert.ok(!BOLD_INDEX_HEADING.test(catalog), `bold heading leaked into: ${JSON.stringify(catalog)}`);
     assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
-    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
+    assert.equal(catalog, '1. [S A](lessons/01-a.md)\n   - summary: M A');
   });
 
   // `applies_when: []` is the same authoring slip as `[a, b]` but reaches the
@@ -198,7 +213,7 @@ describe('loadLessons', () => {
   // Only the `typeof === 'string'` test the implementation actually uses does.
   //
   // The fixture holds TWO lessons on purpose. On a single-entry catalog the
-  // `****` / BLANK_INDEX_HEADING assertions cannot fail without the exact-match
+  // BOLD_INDEX_HEADING / BLANK_INDEX_HEADING assertions cannot fail without the exact-match
   // assertion failing too, so they add no coverage there — they only restate it.
   // A mixed catalog is the one shape where a healthy entry keeps rendering
   // while a second entry leaks a blank heading, so here the invariants can fail
@@ -215,15 +230,15 @@ describe('loadLessons', () => {
     assert.equal(lessons[1].appliesWhen, '');
 
     const catalog = renderCatalog(lessons);
-    assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
+    assert.ok(!BOLD_INDEX_HEADING.test(catalog), `bold heading leaked into: ${JSON.stringify(catalog)}`);
     assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
     assert.equal(
       catalog,
       [
-        '1. **When W A**',
+        '1. When W A',
         '   - symptom: [S A](lessons/01-a.md)',
         '   - summary: M A',
-        '2. **[S B](lessons/02-b.md)**',
+        '2. [S B](lessons/02-b.md)',
         '   - summary: M B',
       ].join('\n'),
     );
@@ -235,12 +250,43 @@ describe('renderCatalog', () => {
     const catalog = renderCatalog([
       { id: 1, file: '01-a.md', symptom: 'S A', summary: 'M A', appliesWhen: 'When W A' },
     ]);
-    assert.equal(catalog, '1. **When W A**\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A');
+    assert.equal(catalog, '1. When W A\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A');
   });
 
   test('renders an entry without applies_when in the legacy "[symptom]" heading + summary-only sub-list', () => {
     const catalog = renderCatalog([{ id: 1, file: '01-a.md', symptom: 'S A', summary: 'M A', appliesWhen: '' }]);
-    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
+    assert.equal(catalog, '1. [S A](lessons/01-a.md)\n   - summary: M A');
+  });
+
+  // The heading carries no `**…**` bold (Issue #68): `applies_when` may quote
+  // a glob inside a code span (e.g. `` `.claude/**` ``), and wrapping that in
+  // `**…**` puts the code span's `**` next to the heading's own closing `**`,
+  // which prettier 3.8.3 "fixes" by escaping the closing pair to `\*\*` (a
+  // formatter-version-dependent byte change verified directly against 3.8.3
+  // and 3.9.6 — see renderCatalog's doc comment for the full writeup). This
+  // generator can never reproduce that escape, so `--check` deadlocks forever
+  // on a file both tools consider correct.
+  test('renders no bold markers even when applies_when contains "**" inside a code span', () => {
+    const catalog = renderCatalog([
+      { id: 1, file: '01-a.md', symptom: 'S A', summary: 'M A', appliesWhen: 'editing `.claude/**`' },
+    ]);
+    assert.equal(catalog, '1. editing `.claude/**`\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A');
+  });
+
+  // A bare `*` in applies_when is a value renderCatalog must still pass through
+  // as-is (see AUTHORING.md's caveat: this is a risk for the AUTHOR to avoid,
+  // not something the generator rewrites or escapes). Pinned separately from
+  // the code-span test above because the failure mode a regression would
+  // reintroduce here is different: a `**<applies_when>**` wrapper around this
+  // exact value would render `**"* star"**`, ambiguous emphasis a formatter
+  // reflows (see renderCatalog's doc comment) — so the heading must both hold
+  // the literal value untouched AND start with no `**` opener at all.
+  test('renders no bold wrapper even when applies_when itself contains a bare "*"', () => {
+    const catalog = renderCatalog([
+      { id: 1, file: '01-a.md', symptom: 'S A', summary: 'M A', appliesWhen: '* star' },
+    ]);
+    assert.equal(catalog, '1. * star\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A');
+    assert.ok(!BOLD_INDEX_HEADING.test(catalog), `bold heading leaked into: ${JSON.stringify(catalog)}`);
   });
 
   test('renders a mixed list (with and without applies_when) correctly for each entry', () => {
@@ -251,10 +297,10 @@ describe('renderCatalog', () => {
     assert.equal(
       catalog,
       [
-        '1. **When W A**',
+        '1. When W A',
         '   - symptom: [S A](lessons/01-a.md)',
         '   - summary: M A',
-        '2. **[S B](lessons/02-b.md)**',
+        '2. [S B](lessons/02-b.md)',
         '   - summary: M B',
       ].join('\n'),
     );
@@ -294,13 +340,13 @@ describe('renderCatalog', () => {
     ]);
     assert.equal(
       catalog,
-      '10. **When W J**\n    - symptom: [S J](lessons/10-j.md)\n    - summary: M J',
+      '10. When W J\n    - symptom: [S J](lessons/10-j.md)\n    - summary: M J',
     );
   });
 
   test('renders a two-digit id (10) in the legacy format with a 4-space sub-list indent', () => {
     const catalog = renderCatalog([{ id: 10, file: '10-j.md', symptom: 'S J', summary: 'M J', appliesWhen: '' }]);
-    assert.equal(catalog, '10. **[S J](lessons/10-j.md)**\n    - summary: M J');
+    assert.equal(catalog, '10. [S J](lessons/10-j.md)\n    - summary: M J');
   });
 
   test('renders the empty-state placeholder when there are no lessons', () => {
@@ -321,7 +367,7 @@ describe('buildSkill', () => {
   test('replaces between the markers and places the note ABOVE the start marker', () => {
     const result = buildSkill(wrap('(stale index)\n'), catalog);
     assert.ok(result.includes('Hand-written preamble.'));
-    assert.ok(result.includes(`${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalog}\n${CATALOG_END}`));
+    assert.ok(result.includes(`${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalog}\n\n${CATALOG_END}`));
     assert.ok(!result.includes('stale index'));
     // Only one note in the whole file, and it precedes the start marker.
     assert.equal(result.split(GENERATED_NOTE).length - 1, 1);
@@ -337,9 +383,28 @@ describe('buildSkill', () => {
     assert.equal(once.split(GENERATED_NOTE).length - 1, 1);
   });
 
+  // The blank line buildSkill places before CATALOG_END (Issue #68, see its
+  // own doc comment) must not accumulate across runs on a file that already
+  // has extra blank-line padding there — e.g. left over from a manual edit,
+  // or from a formatter inserting its own spacing. buildSkill always
+  // rebuilds the whole marker-to-marker region from `catalogBody`, so the
+  // padding already present in the input is discarded rather than added to;
+  // this pins that behavior rather than merely asserting it algebraically.
+  test('collapses pre-existing blank-line padding before the end marker to exactly one blank line', () => {
+    const result = buildSkill(wrap(`${GENERATED_NOTE}\n\n${catalog}\n\n\n`), catalog);
+    assert.ok(
+      result.includes(`${catalog}\n\n${CATALOG_END}`),
+      `expected exactly one blank line before the end marker: ${JSON.stringify(result)}`,
+    );
+    assert.ok(
+      !result.includes(`${catalog}\n\n\n${CATALOG_END}`),
+      `blank-line padding was not collapsed: ${JSON.stringify(result)}`,
+    );
+  });
+
   test('migrates a SKILL.md from the older layout (note between the markers) in one pass', () => {
     const migrated = buildSkill(wrapOldFormat('(old catalog)'), catalog);
-    assert.ok(migrated.includes(`${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalog}\n${CATALOG_END}`));
+    assert.ok(migrated.includes(`${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalog}\n\n${CATALOG_END}`));
     assert.ok(!migrated.includes('old catalog'));
     assert.equal(migrated.split(GENERATED_NOTE).length - 1, 1);
 
@@ -385,7 +450,7 @@ describe('buildSkill', () => {
     );
     // Only the real catalog region was replaced.
     assert.ok(
-      result.includes(`${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalog}\n${CATALOG_END}`),
+      result.includes(`${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalog}\n\n${CATALOG_END}`),
       `the catalog region was not rebuilt: ${JSON.stringify(result)}`,
     );
     assert.ok(!result.includes('stale index'), 'the previous catalog body survived');
@@ -445,7 +510,7 @@ describe('CLI', () => {
   const makeRootWithAppliesWhen = () => makeRootWith('applies_when: When W A');
 
   /** The index entry every empty-`applies_when` lesson must fall back to. */
-  const LEGACY_ENTRY = '1. **[S A](lessons/01-a.md)**\n   - summary: M A';
+  const LEGACY_ENTRY = '1. [S A](lessons/01-a.md)\n   - summary: M A';
 
   /**
    * A temp root holding TWO lessons: a healthy `01-a.md` carrying a real
@@ -506,7 +571,7 @@ describe('CLI', () => {
     const { root, skillPath } = makeRoot();
 
     assert.equal(run(root).status, 0);
-    assert.ok(readFileSync(skillPath, 'utf8').includes('**[S A](lessons/01-a.md)**\n   - summary: M A'));
+    assert.ok(readFileSync(skillPath, 'utf8').includes('[S A](lessons/01-a.md)\n   - summary: M A'));
 
     assert.equal(run(root, ['--check']).status, 0);
   });
@@ -617,7 +682,7 @@ describe('CLI', () => {
     assert.equal(run(root).status, 0);
     assert.ok(
       readFileSync(skillPath, 'utf8').includes(
-        '1. **When W A**\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A',
+        '1. When W A\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A',
       ),
     );
 
@@ -643,7 +708,10 @@ describe('CLI', () => {
     // whichever assertion runs first is the one that reports — so putting the
     // narrower "no blank heading" checks first makes the failure message name
     // the actual defect instead of the more generic "expected entry missing".
-    assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
+    assert.ok(
+      !BOLD_INDEX_HEADING.test(skill),
+      `bold heading leaked into generated SKILL.md: ${JSON.stringify(skill)}`,
+    );
     assert.ok(
       !BLANK_INDEX_HEADING.test(skill),
       `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
@@ -671,7 +739,10 @@ describe('CLI', () => {
     // whichever assertion runs first is the one that reports — so putting the
     // narrower "no blank heading" checks first makes the failure message name
     // the actual defect instead of the more generic "expected entry missing".
-    assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
+    assert.ok(
+      !BOLD_INDEX_HEADING.test(skill),
+      `bold heading leaked into generated SKILL.md: ${JSON.stringify(skill)}`,
+    );
     assert.ok(
       !BLANK_INDEX_HEADING.test(skill),
       `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
@@ -700,19 +771,22 @@ describe('CLI', () => {
     // they are genuinely independent of the positive checks below: entry 1 can
     // render perfectly while entry 2 loses its heading, which is exactly the
     // state a loosened guard produces.
-    assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
+    assert.ok(
+      !BOLD_INDEX_HEADING.test(skill),
+      `bold heading leaked into generated SKILL.md: ${JSON.stringify(skill)}`,
+    );
     assert.ok(
       !BLANK_INDEX_HEADING.test(skill),
       `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
     );
     // The healthy lesson keeps its `applies_when` heading...
     assert.ok(
-      skill.includes('1. **When W A**\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A'),
+      skill.includes('1. When W A\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A'),
       `healthy entry missing from: ${JSON.stringify(skill)}`,
     );
     // ...and the offending one falls back instead of emitting a blank heading.
     assert.ok(
-      skill.includes('2. **[S B](lessons/02-b.md)**\n   - summary: M B'),
+      skill.includes('2. [S B](lessons/02-b.md)\n   - summary: M B'),
       `legacy fallback entry missing from: ${JSON.stringify(skill)}`,
     );
 
