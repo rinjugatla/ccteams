@@ -197,13 +197,14 @@ describe('loadLessons', () => {
   // neither catches `[]`, which sails through and renders as a blank heading.
   // Only the `typeof === 'string'` test the implementation actually uses does.
   //
-  // The fixture holds TWO lessons on purpose. With a single entry, the
-  // `****` / BLANK_INDEX_HEADING assertions can never be the ones that report a
-  // failure: any state producing `****` also breaks the exact-equality check
-  // above them, so they are dominated by it and carry no weight of their own.
-  // A mixed catalog is the only shape where a healthy entry can legitimately
-  // render while a second entry leaks a blank heading, which is exactly the
-  // "no heading-less entry in the index" condition this is meant to prove.
+  // The fixture holds TWO lessons on purpose. On a single-entry catalog the
+  // `****` / BLANK_INDEX_HEADING assertions cannot fail without the exact-match
+  // assertion failing too, so they add no coverage there — they only restate it.
+  // A mixed catalog is the one shape where a healthy entry keeps rendering
+  // while a second entry leaks a blank heading, so here the invariants can fail
+  // on their own, which is exactly the "no heading-less entry in the index"
+  // condition this is meant to prove. (They are also asserted first, so that
+  // failure is what gets reported — see the note on the CLI siblings below.)
   test('treats an empty array-notation "applies_when" as empty and renders the legacy heading', () => {
     const dir = makeLessonsDir({
       '01-a.md': '---\nid: 1\nslug: a\napplies_when: When W A\nsymptom: S A\nsummary: M A\n---\n',
@@ -457,7 +458,7 @@ describe('CLI', () => {
    * while the rest rendered fine", and it pins that the warning is raised for
    * the offending file only.
    */
-  const makeMixedRoot = (appliesWhenLine) => {
+  const makeMixedRoot = (appliesWhenLine = null) => {
     const root = mkdtempSync(path.join(tmpdir(), 'gen-lessons-cli-'));
     const lessonsDir = path.join(root, 'lessons');
     mkdirSync(lessonsDir, { recursive: true });
@@ -466,9 +467,14 @@ describe('CLI', () => {
       '---\nid: 1\nslug: a\napplies_when: When W A\nsymptom: S A\nsummary: M A\n---\nbody\n',
       'utf8',
     );
+    // Guarded the same way as `makeRootWith`: `null` drops the line entirely
+    // rather than writing the literal string "undefined" into the frontmatter,
+    // which would make a no-arg call pass for the wrong reason.
+    const frontmatter = ['---', 'id: 2', 'slug: b'];
+    if (appliesWhenLine !== null) frontmatter.push(appliesWhenLine);
     writeFileSync(
       path.join(lessonsDir, '02-b.md'),
-      ['---', 'id: 2', 'slug: b', appliesWhenLine, 'symptom: S B', 'summary: M B', '---', 'body', ''].join('\n'),
+      [...frontmatter, 'symptom: S B', 'summary: M B', '---', 'body', ''].join('\n'),
       'utf8',
     );
     const skillPath = path.join(root, 'SKILL.md');
