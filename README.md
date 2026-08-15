@@ -28,10 +28,21 @@ commands (its skills call the CLI under the hood). Install one or both.
 
 ### 1. Install the CLI
 
+> [!IMPORTANT]
+> The install steps here differ from the `ccteams` package on the npm registry: that package
+> is the upstream one and does not include this fork's changes (manifest v4, `ccteams migrate`, and
+> more). Install from this repository's Git URL as shown below — **not** `npm install -g ccteams` —
+> and don't run `ccteams upgrade`, which reinstalls the npm package and would replace this
+> fork's CLI with the older upstream version.
+
 ```bash
-npm install -g ccteams
+npm install -g https://github.com/rinjugatla/ccteams.git
 ccteams list
 ```
+
+No clone is needed — npm installs straight from the Git URL. (Contributors working on
+ccteams itself can clone and `npm install -g .` instead; see
+[Development / local testing](#development--local-testing).)
 
 Verify it prints the available teams. You can already use ccteams now — apply a team with
 `ccteams use <team>` and restart Claude Code.
@@ -41,7 +52,7 @@ Verify it prints the available teams. You can already use ccteams now — apply 
 For slash commands inside Claude Code, add the marketplace and install the plugin:
 
 ```
-/plugin marketplace add toffyui/ccteams
+/plugin marketplace add rinjugatla/ccteams
 /plugin install ccteams@ccteams
 /reload-plugins
 ```
@@ -51,13 +62,16 @@ Or restart Claude Code. The slash commands `/ccteams:list-teams`, `/ccteams:use-
 ## Updating
 
 ```bash
-# CLI (new commands, new bundled teams)
-npm install -g ccteams@latest
+# CLI (new commands, new bundled teams) — same Git-URL install as above
+npm install -g https://github.com/rinjugatla/ccteams.git
 
 # Plugin (new or changed slash commands)
 /plugin marketplace update ccteams   # re-pull the latest from the repo
 /reload-plugins                       # or restart Claude Code
 ```
+
+Don't update with `ccteams upgrade` or `npm install -g ccteams@latest` — both pull the
+upstream npm package and replace this fork's CLI (see the note under [Install](#install)).
 
 A full uninstall/reinstall is **not** needed. New slash commands reach users when the
 plugin's `version` is bumped (the plugin is versioned via `plugin.json`); a marketplace
@@ -241,7 +255,7 @@ Both `SessionStart` and `SubagentStart` are needed: `SessionStart` only fires fo
 
 ## Keeping a project up to date (`ccteams migrate`)
 
-`npm install -g ccteams@latest` upgrades the globally installed CLI, but it does **not** touch files ccteams already placed in your project — those only change when you run `ccteams use`, `ccteams unuse`, or `ccteams migrate`. `ccteams migrate` closes that gap for what it is safe for ccteams to add or update on its own:
+Reinstalling the CLI (`npm install -g https://github.com/rinjugatla/ccteams.git`, see [Install](#install)) upgrades the globally installed CLI, but it does **not** touch files ccteams already placed in your project — those only change when you run `ccteams use`, `ccteams unuse`, or `ccteams migrate`. `ccteams migrate` closes that gap for what it is safe for ccteams to add or update on its own:
 
 ```bash
 ccteams migrate                # add missing files, update files ccteams itself has since changed, report drift only you can resolve
@@ -267,7 +281,7 @@ ccteams migrate --yes --force  # also overwrite files you edited (or whose basel
 - **Run it from the project's main checkout, not a worktree.** ccteams writes into `.claude/`, and a git worktree's `.claude/` is typically untracked local state that gets discarded when the worktree is removed — running `migrate` there would not persist the change back to the repo.
 - If ccteams is not applied in the current project (no `.claude/.ccteams-manifest.json`), `ccteams migrate` does nothing and exits `0`, pointing you at `ccteams use <team>` instead.
 - **Manifest v4 and older ccteams versions:** the reconciliation above needs a per-file baseline hash, so the manifest format moved to v4 (`.claude/.ccteams-manifest.json`'s `"version": "4"`). This is written automatically the next time you run `ccteams use` or `ccteams migrate`. A project whose manifest is still v3 or earlier works fine with the current ccteams (it degrades to the "unknown baseline" case above until its baseline hashes are recorded), but the reverse does not hold: a pre-v4 ccteams CLI cannot read a v4 manifest, treats the project as if no team were applied, and then aborts on `ccteams use`, before writing anything, because the collision guard sees every ccteams-placed file as unexpectedly "hand-written". If your team pins a ccteams version, upgrade everyone together rather than leaving some machines on a pre-v4 CLI against a v4-manifest project.
-- **Keep one ccteams version per machine:** don't switch back and forth between an old and a new `ccteams` binary — install it globally once, so a project's manifest and the CLI reading it never disagree. As of this writing, the `ccteams` package published to npm predates v4 and cannot read a v4 manifest; a v4-aware CLI comes from this repository's source (`npm install -g .`, see [Development / local testing](#development--local-testing)). If you encounter the abort described above, upgrade the CLI — the manifest is never downgraded to suit an older CLI.
+- **Keep one ccteams version per machine:** don't switch back and forth between an old and a new `ccteams` binary — install it globally once, so a project's manifest and the CLI reading it never disagree. As of this writing, the `ccteams` package published to npm does not include v4 support and cannot read a v4 manifest; a v4-aware CLI comes from this repository (`npm install -g https://github.com/rinjugatla/ccteams.git`, see [Install](#install) — contributors working from a clone can use `npm install -g .` instead). If you encounter the abort described above, upgrade the CLI — the manifest is never downgraded to suit an older CLI.
 
 ## Per-agent model presets
 
