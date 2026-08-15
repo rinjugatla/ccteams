@@ -203,6 +203,43 @@ Malformed fixture lesson.
     assert.doesNotMatch(missingBlock, /01-no-frontmatter\.md/, `the file must not also appear in the missing-applies_when block:\n${missingBlock}`);
   });
 
+  /**
+   * The test above slices `notices` at the "could not be checked" heading and
+   * treats everything BEFORE it as the missing-applies_when block. That slice
+   * is only meaningful if the two blocks are actually emitted in that order,
+   * which the test above cannot check on its own: it produces a file for the
+   * unreadable block only, so its "missing" slice is empty either way. This
+   * test is the one that pins the ordering, by producing BOTH findings at once
+   * and asserting each file lands in its own block — so a future reordering of
+   * the two blocks in buildTeamLessonsAppliesWhenNotices() fails here loudly
+   * instead of silently turning the slice above into a no-op.
+   */
+  test('both findings at once: each file lands in its own block, missing block first', async () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+    writeLesson(root, '01-missing.md', lessonMissingAppliesWhen(1));
+    writeLesson(root, '02-no-frontmatter.md', 'No frontmatter block here at all.\n');
+
+    const result = await migrate(root);
+    const notices = appliesWhenStepOf(result).notices;
+
+    const unreadableHeadingIndex = notices.findIndex((line) => line.includes('could not be checked'));
+    assert.notEqual(unreadableHeadingIndex, -1, `expected a "could not be checked" block in:\n${notices.join('\n')}`);
+    // Both blocks must be present, and the missing block must come FIRST —
+    // otherwise the slice is empty and the assertions below prove nothing.
+    assert.ok(
+      unreadableHeadingIndex > 0,
+      `the missing-applies_when block must be emitted BEFORE the unreadable block; got:\n${notices.join('\n')}`,
+    );
+    const missingBlock = notices.slice(0, unreadableHeadingIndex).join('\n');
+    const unreadableBlock = notices.slice(unreadableHeadingIndex).join('\n');
+
+    assert.match(missingBlock, /01-missing\.md/, `expected 01-missing.md in the missing block:\n${missingBlock}`);
+    assert.doesNotMatch(missingBlock, /02-no-frontmatter\.md/, `02-no-frontmatter.md must not be in the missing block:\n${missingBlock}`);
+    assert.match(unreadableBlock, /02-no-frontmatter\.md/, `expected 02-no-frontmatter.md in the unreadable block:\n${unreadableBlock}`);
+    assert.doesNotMatch(unreadableBlock, /01-missing\.md/, `01-missing.md must not be in the unreadable block:\n${unreadableBlock}`);
+  });
+
   test('whitespace-only and array-form applies_when are both treated as missing', async () => {
     const root = makeProject();
     applyMinimalManifest(root);
@@ -284,9 +321,13 @@ Malformed fixture lesson.
    * step's own `readdirSync` catch in EITHER shape. The only way to exercise
    * that catch block at all is to build ctx by hand and call `.run()` on the
    * step directly, matching the sibling `run(ctx) = { projectRoot,
-   * dotClaudeDir, ... }` shape documented in lib/migrate.js. `dryRun`/`yes`/
-   * `force`/`promptFn` are omitted: this step's `run()` never reads them
-   * (it never writes anything — see its own `added`/`updated` contract).
+   * dotClaudeDir, ... }` shape documented in lib/migrate.js. `dryRun: false`
+   * is passed EXPLICITLY even though this step's `run()` never reads it (it
+   * never writes anything — see its own `added`/`updated` contract): omitting
+   * it would leave `ctx.dryRun` as `undefined`, which a future `run()` that
+   * DID start reading it would silently treat as falsy, letting this test keep
+   * passing for the wrong reason. `yes`/`force`/`promptFn` stay omitted — this
+   * step never prompts, so there is no such ambiguity to remove for them.
    */
   test('readdirSync failure on lessons/ is reported, not thrown', () => {
     const root = makeProject();
@@ -299,7 +340,7 @@ Malformed fixture lesson.
 
     let result;
     assert.doesNotThrow(() => {
-      result = teamLessonsAppliesWhenStep.run({ projectRoot: root, dotClaudeDir });
+      result = teamLessonsAppliesWhenStep.run({ projectRoot: root, dotClaudeDir, dryRun: false });
     });
 
     assert.deepEqual(result.added, []);
