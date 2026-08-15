@@ -29,6 +29,18 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const SCAFFOLD_TEAM_LESSONS = path.join(REPO_ROOT, 'scaffold', 'team-lessons');
 const GENERATOR = path.join(SCAFFOLD_TEAM_LESSONS, 'scripts', 'gen-lessons.mjs');
 
+// An entry whose heading holds nothing but whitespace: `1. ****` (an empty
+// `applies_when` reaching the heading) and `1. **   **` (a whitespace-only one
+// reaching it). Both are what the fallback exists to prevent — they read as an
+// unlabelled entry, and the reader loses the very first line the index is
+// supposed to let them rule the lesson out on. Matched with `m` so it finds the
+// offending entry anywhere in a multi-entry catalog (or in a whole SKILL.md).
+//
+// The leading indent class is `[ \t]`, not `\s`: `\s` matches newlines too, so
+// with `m` it would happily span from a bare `1.` on one line to a `**  **` on
+// a later one and report a blank heading that no single line actually contains.
+const BLANK_INDEX_HEADING = /^[ \t]*\d+\.[ \t]+\*\*[ \t]*\*\*/m;
+
 describe('parseFrontmatter', () => {
   test('parses key: value pairs and array values', () => {
     const fm = parseFrontmatter('---\nid: 3\nslug: foo\nrefs: [PR #52, Issue #66]\n---\nbody\n');
@@ -131,6 +143,89 @@ describe('loadLessons', () => {
     });
     assert.doesNotThrow(() => loadLessons(dir));
     assert.equal(loadLessons(dir)[0].appliesWhen, '');
+  });
+
+  // The two tests below carry the loaded lesson one step further, into
+  // renderCatalog, because "appliesWhen === ''" is only half the contract: the
+  // point of the empty-string fallback is that the entry still gets a usable
+  // heading. Asserting the rendered body here is what makes a regression that
+  // leaks the raw value into the heading visible.
+  test('treats a whitespace-only "applies_when" as empty and renders the legacy heading', () => {
+    // A trailing space (or tab) after the colon is invisible in an editor and
+    // survives review, so it is the slip an author is least likely to catch
+    // themselves. parseFrontmatter trims the value, which must land this on the
+    // same fallback as omitting the field entirely — not on a blank heading.
+    const dir = makeLessonsDir({
+      '01-a.md': '---\nid: 1\nslug: a\napplies_when:  \t\nsymptom: S A\nsummary: M A\n---\n',
+    });
+    const lessons = loadLessons(dir);
+    assert.equal(lessons[0].appliesWhen, '');
+
+    const catalog = renderCatalog(lessons);
+    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
+    // Stated explicitly as well as via the equality above: these are the two
+    // shapes a leaked empty value produces, and naming them keeps the intent
+    // legible if the surrounding format ever changes.
+    assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
+    assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
+  });
+
+  test('treats an array-notation "applies_when" as empty and renders the legacy heading', () => {
+    // `applies_when: [a, b]` is a realistic authoring slip rather than a
+    // contrived one: a sibling field in the same frontmatter schema really is a
+    // list (`refs: [PR #52, Issue #66]`), so an author who has just written
+    // that line reaches for the same form here. The parser hands back an ARRAY,
+    // which must NOT be stringified into the heading ("a,b") — it falls back
+    // exactly like a missing field, warning included.
+    const dir = makeLessonsDir({
+      '01-a.md': '---\nid: 1\nslug: a\napplies_when: [a, b]\nsymptom: S A\nsummary: M A\n---\n',
+    });
+    const lessons = loadLessons(dir);
+    assert.equal(lessons[0].appliesWhen, '');
+
+    const catalog = renderCatalog(lessons);
+    assert.equal(catalog, '1. **[S A](lessons/01-a.md)**\n   - summary: M A');
+    assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
+    assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
+  });
+
+  // `applies_when: []` is the same authoring slip as `[a, b]` but reaches the
+  // fallback by a different route, so it is pinned separately: an empty array
+  // literal is the one array value that is EMPTY yet still truthy in JS. A
+  // guard written as `frontmatter.applies_when || ''` happens to catch `''`
+  // and `undefined`, and one written as `?? ''` happens to catch `undefined` —
+  // neither catches `[]`, which sails through and renders as a blank heading.
+  // Only the `typeof === 'string'` test the implementation actually uses does.
+  //
+  // The fixture holds TWO lessons on purpose. With a single entry, the
+  // `****` / BLANK_INDEX_HEADING assertions can never be the ones that report a
+  // failure: any state producing `****` also breaks the exact-equality check
+  // above them, so they are dominated by it and carry no weight of their own.
+  // A mixed catalog is the only shape where a healthy entry can legitimately
+  // render while a second entry leaks a blank heading, which is exactly the
+  // "no heading-less entry in the index" condition this is meant to prove.
+  test('treats an empty array-notation "applies_when" as empty and renders the legacy heading', () => {
+    const dir = makeLessonsDir({
+      '01-a.md': '---\nid: 1\nslug: a\napplies_when: When W A\nsymptom: S A\nsummary: M A\n---\n',
+      '02-b.md': '---\nid: 2\nslug: b\napplies_when: []\nsymptom: S B\nsummary: M B\n---\n',
+    });
+    const lessons = loadLessons(dir);
+    assert.equal(lessons[0].appliesWhen, 'When W A');
+    assert.equal(lessons[1].appliesWhen, '');
+
+    const catalog = renderCatalog(lessons);
+    assert.equal(
+      catalog,
+      [
+        '1. **When W A**',
+        '   - symptom: [S A](lessons/01-a.md)',
+        '   - summary: M A',
+        '2. **[S B](lessons/02-b.md)**',
+        '   - summary: M B',
+      ].join('\n'),
+    );
+    assert.ok(!catalog.includes('****'), `empty emphasis in: ${JSON.stringify(catalog)}`);
+    assert.ok(!BLANK_INDEX_HEADING.test(catalog), `heading-less entry in: ${JSON.stringify(catalog)}`);
   });
 });
 
@@ -316,14 +411,25 @@ describe('resolvePaths', () => {
  * deleting `process.exitCode = 1` from main() must turn a test red.
  */
 describe('CLI', () => {
-  /** A temp team-lessons root: one lesson (no applies_when) + a SKILL.md with bare markers. */
-  const makeRoot = () => {
+  /**
+   * A temp team-lessons root: one lesson (`01-a.md`) + a SKILL.md with bare
+   * markers. `appliesWhenLine` is the raw frontmatter line placed between
+   * `slug:` and `symptom:`; `null` means the field is absent altogether (a
+   * lesson written before `applies_when` existed).
+   *
+   * Every scenario below differs ONLY in that one line — present, absent,
+   * whitespace-only, array notation — so they share one builder instead of each
+   * copying a near-identical fixture that then has to be kept in sync.
+   */
+  const makeRootWith = (appliesWhenLine = null) => {
     const root = mkdtempSync(path.join(tmpdir(), 'gen-lessons-cli-'));
     const lessonsDir = path.join(root, 'lessons');
     mkdirSync(lessonsDir, { recursive: true });
+    const frontmatter = ['---', 'id: 1', 'slug: a'];
+    if (appliesWhenLine !== null) frontmatter.push(appliesWhenLine);
     writeFileSync(
       path.join(lessonsDir, '01-a.md'),
-      '---\nid: 1\nslug: a\nsymptom: S A\nsummary: M A\n---\nbody\n',
+      [...frontmatter, 'symptom: S A', 'summary: M A', '---', 'body', ''].join('\n'),
       'utf8',
     );
     const skillPath = path.join(root, 'SKILL.md');
@@ -331,14 +437,38 @@ describe('CLI', () => {
     return { root, skillPath };
   };
 
+  /** A temp team-lessons root whose single lesson has no `applies_when` at all. */
+  const makeRoot = () => makeRootWith(null);
+
   /** Same shape as makeRoot(), but the lesson carries an `applies_when`. */
-  const makeRootWithAppliesWhen = () => {
+  const makeRootWithAppliesWhen = () => makeRootWith('applies_when: When W A');
+
+  /** The index entry every empty-`applies_when` lesson must fall back to. */
+  const LEGACY_ENTRY = '1. **[S A](lessons/01-a.md)**\n   - summary: M A';
+
+  /**
+   * A temp root holding TWO lessons: a healthy `01-a.md` carrying a real
+   * `applies_when`, and `02-b.md` carrying `appliesWhenLine`.
+   *
+   * Kept separate from `makeRootWith` rather than folded into it so that
+   * builder's fixture bytes stay exactly what the eleven existing single-lesson
+   * scenarios have always written. The mixed shape is what lets an assertion
+   * distinguish "the whole index collapsed" from "one entry lost its heading
+   * while the rest rendered fine", and it pins that the warning is raised for
+   * the offending file only.
+   */
+  const makeMixedRoot = (appliesWhenLine) => {
     const root = mkdtempSync(path.join(tmpdir(), 'gen-lessons-cli-'));
     const lessonsDir = path.join(root, 'lessons');
     mkdirSync(lessonsDir, { recursive: true });
     writeFileSync(
       path.join(lessonsDir, '01-a.md'),
       '---\nid: 1\nslug: a\napplies_when: When W A\nsymptom: S A\nsummary: M A\n---\nbody\n',
+      'utf8',
+    );
+    writeFileSync(
+      path.join(lessonsDir, '02-b.md'),
+      ['---', 'id: 2', 'slug: b', appliesWhenLine, 'symptom: S B', 'summary: M B', '---', 'body', ''].join('\n'),
       'utf8',
     );
     const skillPath = path.join(root, 'SKILL.md');
@@ -488,6 +618,90 @@ describe('CLI', () => {
     const result = run(root, ['--check']);
     assert.equal(result.status, 0);
     assert.equal(result.stderr, '');
+  });
+
+  // The warning is a console.error in the generator's own process, so the only
+  // way to prove an author actually SEES it for these two malformed spellings is
+  // to run the real CLI and read its stderr — the same reason the missing-field
+  // warning is tested here rather than around loadLessons().
+  test('a whitespace-only "applies_when" warns on stderr and writes the legacy heading', () => {
+    // Trailing whitespace after the colon is invisible in the editor, so this
+    // must not silently produce a headingless entry: it takes the same fallback,
+    // and the same warning, as a lesson with no `applies_when` at all.
+    const { root, skillPath } = makeRootWith('applies_when:  \t');
+
+    assert.equal(run(root).status, 0);
+    const skill = readFileSync(skillPath, 'utf8');
+    assert.ok(skill.includes(LEGACY_ENTRY), `legacy fallback entry missing from: ${JSON.stringify(skill)}`);
+    assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
+    assert.ok(
+      !BLANK_INDEX_HEADING.test(skill),
+      `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
+    );
+
+    const result = run(root, ['--check']);
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /applies_when/);
+    // The file name is asserted too, so a warning raised for some OTHER lesson
+    // could not satisfy this test.
+    assert.match(result.stderr, /01-a\.md/);
+  });
+
+  test('an array-notation "applies_when" warns on stderr and writes the legacy heading', () => {
+    // `[a, b]` is the form the sibling `refs:` field really uses, so an author
+    // slips into it here; the parser returns an ARRAY, which must fall back
+    // rather than be stringified into the heading as "a,b".
+    const { root, skillPath } = makeRootWith('applies_when: [a, b]');
+
+    assert.equal(run(root).status, 0);
+    const skill = readFileSync(skillPath, 'utf8');
+    assert.ok(skill.includes(LEGACY_ENTRY), `legacy fallback entry missing from: ${JSON.stringify(skill)}`);
+    assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
+    assert.ok(
+      !BLANK_INDEX_HEADING.test(skill),
+      `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
+    );
+
+    const result = run(root, ['--check']);
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /applies_when/);
+    assert.match(result.stderr, /01-a\.md/);
+  });
+
+  // The empty array literal `[]` gets its own CLI scenario, on a two-lesson
+  // root, because it is the array value that is empty AND truthy: it is the
+  // spelling most likely to survive a loosened guard (`?? ''`, `|| ''`) and
+  // reach the heading. Running it beside a healthy lesson proves the index does
+  // not merely collapse — the healthy entry still renders, only the offending
+  // one falls back, and only that one's file name is named on stderr.
+  test('an empty array-notation "applies_when" warns for that lesson only and keeps the rest of the index intact', () => {
+    const { root, skillPath } = makeMixedRoot('applies_when: []');
+
+    assert.equal(run(root).status, 0);
+    const skill = readFileSync(skillPath, 'utf8');
+    // The healthy lesson keeps its `applies_when` heading...
+    assert.ok(
+      skill.includes('1. **When W A**\n   - symptom: [S A](lessons/01-a.md)\n   - summary: M A'),
+      `healthy entry missing from: ${JSON.stringify(skill)}`,
+    );
+    // ...and the offending one falls back instead of emitting a blank heading.
+    assert.ok(
+      skill.includes('2. **[S B](lessons/02-b.md)**\n   - summary: M B'),
+      `legacy fallback entry missing from: ${JSON.stringify(skill)}`,
+    );
+    assert.ok(!skill.includes('****'), `empty emphasis in generated SKILL.md: ${JSON.stringify(skill)}`);
+    assert.ok(
+      !BLANK_INDEX_HEADING.test(skill),
+      `heading-less entry in generated SKILL.md: ${JSON.stringify(skill)}`,
+    );
+
+    const result = run(root, ['--check']);
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /applies_when/);
+    // Named for the offending lesson, and NOT for the healthy one — so a
+    // warning fired indiscriminately for every lesson cannot satisfy this.
+    assert.match(result.stderr, /02-b\.md/);
+    assert.ok(!result.stderr.includes('01-a.md'), `warned about the healthy lesson: ${JSON.stringify(result.stderr)}`);
   });
 
   test('the shipped scaffold is already --check clean out of the box', () => {
