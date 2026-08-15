@@ -210,15 +210,39 @@ export function loadLessons(lessonsDir) {
  * it so a scan of the index can rule a lesson out from its first line, with
  * `symptom` (linked to the detail file) and `summary` as a two-line sub-list:
  *
- *   1. **<applies_when>**
+ *   1. <applies_when>
  *      - symptom: [<symptom>](lessons/NN-slug.md)
  *      - summary: <summary>
  *
  * Lessons written before `applies_when` existed (see `loadLessons`) render in
  * the older, backward-compatible heading instead, with only `summary` below it:
  *
- *   1. **[<symptom>](lessons/NN-slug.md)**
+ *   1. [<symptom>](lessons/NN-slug.md)
  *      - summary: <summary>
+ *
+ * The heading is NOT wrapped in `**…**` bold (Issue #68). `applies_when` is
+ * free text an author writes, and it commonly needs to quote a glob or path
+ * verbatim in a code span, e.g. `` `.claude/**` ``. Wrapping that in
+ * `**<applies_when>**` puts the code span's own `**` right next to the
+ * heading's closing `**`, and prettier 3.8.3 (the version this bug was first
+ * observed with) treats the closing pair as ambiguous and escapes it to
+ * `\*\*` on write — a change this generator can never reproduce byte-for-byte
+ * on the next run, so `--check` fails forever. This is version-dependent:
+ * prettier 3.9.6 round-trips that same code-span case untouched (verified
+ * directly against both versions), so pinning a newer prettier alone would
+ * "fix" this one case. It would not fix the general problem, because ANY
+ * bare `*` or `*em*`-shaped emphasis inside `applies_when` / `symptom` /
+ * `summary` collides with a `**…**` wrapper the same way regardless of
+ * prettier version (verified on both 3.8.3 and 3.9.6) — e.g. an
+ * `applies_when` of `* star` wrapped as `**"* star"**` gets reflowed to
+ * `_*"* star"_*`. Dropping the bold wrapper entirely removes the code-span
+ * case outright and narrows the remaining risk to values that themselves
+ * contain unbalanced emphasis (documented as an authoring constraint in
+ * AUTHORING.md rather than solved here — seeing prettier reparse the raw
+ * value is unavoidable once it is embedded in Markdown at all). The `N. `
+ * ordered-list marker and the sub-list structure already make the heading
+ * visually distinct without emphasis, so bold is dropped rather than escaped
+ * or worked around.
  *
  * The sub-list lines are indented to `String(id).length + 2` spaces — the
  * width of that item's own `N. ` ordered-list marker (`1. ` / `9. ` = 3,
@@ -241,12 +265,12 @@ export function renderCatalog(lessons) {
       const symptomLink = `[${lesson.symptom}](lessons/${lesson.file})`;
       if (lesson.appliesWhen) {
         return [
-          `${lesson.id}. **${lesson.appliesWhen}**`,
+          `${lesson.id}. ${lesson.appliesWhen}`,
           `${indent}- symptom: ${symptomLink}`,
           `${indent}- summary: ${lesson.summary}`,
         ].join('\n');
       }
-      return [`${lesson.id}. **${symptomLink}**`, `${indent}- summary: ${lesson.summary}`].join('\n');
+      return [`${lesson.id}. ${symptomLink}`, `${indent}- summary: ${lesson.summary}`].join('\n');
     })
     .join('\n');
 }
@@ -270,6 +294,18 @@ function escapeRegExp(literal) {
  * a fresh note on top of it every time. The pattern absorbs any number of
  * repeats so a file left in a broken, already-stacked state still recovers
  * to a single note on the next run.
+ *
+ * A blank line is placed both AFTER the start marker and BEFORE the end
+ * marker (Issue #68). Without the trailing blank line, `catalogBody`'s last
+ * line and `CATALOG_END` are adjacent with no blank line between them, which
+ * CommonMark treats as a lazy continuation line of the catalog's last list
+ * item — the end marker becomes part of that list item rather than a
+ * standalone line. A formatter (prettier) that understands CommonMark then
+ * indents the marker to nest it under the list, and the next `--check` run
+ * compares that indented marker against this function's un-indented output
+ * and reports drift — a generate-vs-format deadlock, because whichever tool
+ * runs last "wins" until the other runs again. The blank line makes the end
+ * marker its own block, immune to list-continuation reflowing.
  *
  * @param {string} skillContent current full text of SKILL.md
  * @param {string} catalogBody output of renderCatalog
@@ -299,7 +335,7 @@ export function buildSkill(skillContent, catalogBody) {
   const staleNotePattern = new RegExp(`(?:${escapeRegExp(GENERATED_NOTE)}\\n+)+$`);
   const before = normalized.slice(0, startIndex).replace(staleNotePattern, '');
   const after = normalized.slice(endIndex);
-  return `${before}${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalogBody}\n${after}`;
+  return `${before}${GENERATED_NOTE}\n${CATALOG_START}\n\n${catalogBody}\n\n${after}`;
 }
 
 function main() {

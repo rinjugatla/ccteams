@@ -14,7 +14,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { CATALOG_START, CATALOG_END, GENERATED_NOTE } from '../scaffold/team-lessons/scripts/gen-lessons.mjs';
+import {
+  CATALOG_START,
+  CATALOG_END,
+  GENERATED_NOTE,
+  buildSkill,
+  renderCatalog,
+} from '../scaffold/team-lessons/scripts/gen-lessons.mjs';
 import { extractCatalog } from '../scaffold/team-lessons/scripts/lessons-index.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -22,15 +28,24 @@ const SCRIPT = path.join(REPO_ROOT, 'scaffold', 'team-lessons', 'scripts', 'less
 
 const catalogBody = '1. **[S A](lessons/01-a.md)** → M A';
 
-/** Build a SKILL.md's full text the same way gen-lessons.mjs's new layout does. */
-const skillWith = (body) =>
-  `# T\n\n## Failure catalog\n\n${GENERATED_NOTE}\n${CATALOG_START}\n\n${body}\n${CATALOG_END}\n`;
+/** The bare-markers skeleton buildSkill fills in — same shape gen-lessons.mjs ships. */
+const SKILL_SKELETON = `# T\n\n## Failure catalog\n\n${CATALOG_START}\n${CATALOG_END}\n`;
+
+/**
+ * Build a SKILL.md's full text the same way gen-lessons.mjs's CURRENT layout
+ * does — via buildSkill itself, rather than a hand-rolled string, so this
+ * fixture cannot drift from the real generator's output (Issue #68 QA
+ * finding: a hand-rolled copy here was missing the blank line buildSkill now
+ * places before CATALOG_END).
+ */
+const skillWith = (body) => buildSkill(SKILL_SKELETON, body);
 
 /**
  * Build a SKILL.md the way the OLD generator laid it out, with the note BETWEEN
- * the markers. `gen-lessons.mjs` is user-owned and never force-upgraded, so every
- * project scaffolded before this change keeps this layout indefinitely — the hook
- * has to read it without leaking the note as if it were a catalog entry.
+ * the markers AND no blank line before CATALOG_END. `gen-lessons.mjs` is
+ * user-owned and never force-upgraded, so every project scaffolded before
+ * either change keeps this exact layout indefinitely — the hook has to read
+ * it without leaking the note as if it were a catalog entry.
  */
 const oldLayoutSkillWith = (body) =>
   `# T\n\n## Failure catalog\n\n${CATALOG_START}\n${GENERATED_NOTE}\n\n${body}\n${CATALOG_END}\n`;
@@ -55,6 +70,23 @@ const skillQuotingEndMarkerAbove = (body) => {
 describe('extractCatalog', () => {
   test('extracts and trims the catalog body between the markers', () => {
     assert.equal(extractCatalog(skillWith(catalogBody)), catalogBody);
+  });
+
+  // End-to-end through the two real generator functions (buildSkill +
+  // renderCatalog) rather than the `catalogBody` string fixture above, so a
+  // future layout change to either one is caught here even if the hand-picked
+  // fixture happens not to exercise it. Guards the Issue #68 QA finding
+  // directly: buildSkill's rendered SKILL.md now has a blank line on both
+  // sides of the catalog body, and extractCatalog must still hand back a body
+  // with no leading/trailing blank line of its own.
+  test('reads the current buildSkill + renderCatalog layout end-to-end', () => {
+    const lesson = { id: 1, file: '01-a.md', symptom: 'S A', summary: 'M A', appliesWhen: 'When W A' };
+    const rendered = renderCatalog([lesson]);
+    const skill = buildSkill(SKILL_SKELETON, rendered);
+
+    const body = extractCatalog(skill);
+    assert.equal(body, rendered);
+    assert.ok(!body.startsWith('\n') && !body.endsWith('\n'), `blank line leaked into: ${JSON.stringify(body)}`);
   });
 
   test('returns "" when the markers are missing', () => {
