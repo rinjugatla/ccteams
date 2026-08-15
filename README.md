@@ -411,6 +411,6 @@ MIT © toffyui, rinjugatla. See [LICENSE](./LICENSE) for the full text.
 
 I would be grateful if you can vote here!
 
-<a href="https://orynth.dev/projects/ccteams" target="_blank" rel="noopener">
-  <img src="https://orynth.dev/api/badge/ccteams?theme=light&style=default" alt="Featured on Orynth" width="260" height="80" />
+<a href="https://orynth.dev/projects/rinjugatla-ccteams" target="_blank" rel="noopener">
+  <img src="https://orynth.dev/api/badge/rinjugatla-ccteams?theme=light&style=default" alt="Featured on Orynth" width="260" height="80" />
 </a>
