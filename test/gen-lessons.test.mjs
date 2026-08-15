@@ -451,8 +451,8 @@ describe('CLI', () => {
    * `applies_when`, and `02-b.md` carrying `appliesWhenLine`.
    *
    * Kept separate from `makeRootWith` rather than folded into it so that
-   * builder's fixture bytes stay exactly what the eleven existing single-lesson
-   * scenarios have always written. The mixed shape is what lets an assertion
+   * `makeRootWith`'s fixture bytes stay exactly what the eleven existing
+   * single-lesson scenarios have always written. The mixed shape lets an assertion
    * distinguish "the whole index collapsed" from "one entry lost its heading
    * while the rest rendered fine", and it pins that the warning is raised for
    * the offending file only.
