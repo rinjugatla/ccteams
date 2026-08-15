@@ -1,0 +1,32 @@
+name: 機能要望
+description: 新機能の提案や既存機能の改善要望
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景・目的（事実）
+      description: コードやドキュメントの現状と、なぜこの機能が必要かを事実ベースで記載する。関連する資料（README.md 等）があれば参照を示す。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 提案内容（推論・案）
+      description: どう実現するかの案。複数案がある場合は列挙し、トレードオフを記載する。未確定の部分は未確定と明記する。
+    validations:
+      required: true
+  - type: textarea
+    id: done-means
+    attributes:
+      label: 完了条件（done means）
+      description: このissueをクローズできる条件を箇条書きで記載する。挙動の追加・変更を伴う場合は、`npm test` で検証されるテストを追加し通過する旨も含めること（新規テストファイルを追加する場合は package.json の scripts.test への追記も忘れない）。
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: 関連issue・参考資料
+      description: 関連するissue（`#番号`）、PR、外部ドキュメントへのリンク。
+    validations:
+      required: false

@@ -1,0 +1,42 @@
+name: バグ報告
+description: 動作しない・期待と異なる挙動の報告
+labels: ['bug']
+body:
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の挙動（事実）
+      description: 何が起きたかを事実ベースで記載する。エラーメッセージやログはそのまま貼り付ける。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待される挙動
+      description: 本来どう動くべきか。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: 再現に必要な手順を番号付きで記載する。
+      placeholder: |
+        1. `npx ccteams use go-api` を実行する
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境
+      description: OS、Node.jsのバージョン、ccteamsのバージョン（`ccteams version`）など再現に関係しうる環境情報。
+    validations:
+      required: false
+  - type: textarea
+    id: analysis
+    attributes:
+      label: 原因の推測（推論）
+      description: 原因の見立てがあれば記載する。事実と区別するためこの欄に書く。
+    validations:
+      required: false
