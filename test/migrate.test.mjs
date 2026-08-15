@@ -115,6 +115,11 @@ function snapshotDir(dir) {
  * asserting about a DIFFERENT step — passing or failing for reasons unrelated
  * to what the test is named after.
  *
+ * "Legal refactor" here means these lookups do not object to it. The order
+ * itself is deliberately pinned by one dedicated test — 'runs the migration
+ * steps in a fixed, user-visible order' — which is the single place a reorder
+ * has to be argued for.
+ *
  * The explicit assert is the point of the helper: `find()` alone returns
  * undefined for an unknown id, so the test would die on `.added of undefined`
  * several lines later. Renaming or dropping a step id must instead fail here,
@@ -333,6 +338,42 @@ describe('migrate()', () => {
     assert.equal(result.exitCode, 1);
     assert.equal(result.pending, 0, 'must not report 5 addable files for a destination it cannot write to');
     assert.match(result.message, /team-lessons/);
+  });
+
+  /**
+   * The order of MIGRATION_STEPS is part of what a user sees, not an internal
+   * detail: migrate() runs the steps in array order and formatMigrateReport()
+   * walks that same `steps` array, printing a heading for each step that has
+   * something to report (empty steps are skipped — see the rows/notices guard
+   * in formatMigrateReport), so reordering the array reorders the report.
+   * lib/migrate.js also documents a real dependency between two of them —
+   * teamLessonsHookStep's header, and the DESIGN-D note on
+   * lessonsIndexWillExist, both state that teamLessonsScaffoldStep must run
+   * BEFORE it.
+   *
+   * Nothing else in this suite pins that order: every other test looks steps
+   * up by id (see stepById above), which is order-insensitive by design. This
+   * test is the pin. It also exists to go red the day a fourth step is added,
+   * forcing an explicit decision about where the new heading belongs in the
+   * report rather than letting the position fall out of wherever the new entry
+   * was appended to the array literal.
+   *
+   * `assert.deepEqual` is the strict comparison here — this file imports
+   * node:assert/strict, under which deepEqual IS deepStrictEqual — and it is
+   * the form the rest of the suite uses. The whole id list is compared at once
+   * (rather than indexing individual positions) so a failure reports the
+   * actual order against the expected one.
+   */
+  test('runs the migration steps in a fixed, user-visible order', async () => {
+    const root = makeProject();
+    applyMinimalManifest(root);
+
+    const result = await migrate(root);
+
+    assert.deepEqual(
+      result.steps.map((s) => s.id),
+      ['team-lessons-scaffold', 'team-lessons-hook', 'ccteams-owned-files'],
+    );
   });
 });
 
