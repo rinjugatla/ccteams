@@ -1,5 +1,7 @@
 # ccteams — Agent-Team Package Manager for Claude Code
 
+**日本語版: [README.ja.md](./README.ja.md)** — a translation; this English README is the source of truth (see [Translations](#translations)).
+
 Apply a pre-built team of Claude Code subagents to your project with one command, and stack or remove teams whenever the work changes. An **agent team** is a bundle of subagents (with specific roles, expertise, and behaviors) plus orchestration rules that control how they collaborate — managed as a single unit in your project's `.claude/` directory. Applying a team is **additive**: you can have more than one team applied to the same project at once (e.g. a stack-specific team plus `frontend`), and `ccteams unuse <team>` removes one without disturbing the others.
 
 ## Two ways to use it
@@ -431,6 +433,13 @@ npm test
 ```
 
 Runs the test files `package.json`'s `test` script enumerates, via `node --test`. That list is explicit rather than a glob, so a new test file does nothing until you add it there too. No dependencies to install — the suite uses only `node:test` and `node:assert`, matching the package's zero-dependency policy. It covers the team-lessons index generator, the hook script that extracts the catalog for injection, the never-overwrite contract of the team-lessons scaffold, the manifest's v4 schema (and its normalization of v1–v3), the `placedFiles` src→dest resolution used by both `ccteams use` and `ccteams migrate`, and `ccteams migrate` / `ccteams migrate --dry-run` — including its CLI integration, the team-lessons scaffold/hook-detection behavior it shares with `ccteams use`, and (in `test/migrate-owned-files.test.mjs`) the ccteams-owned-file reconciliation: the unchanged/upstream-changed/user-modified/unknown-baseline classification, `--yes`/`--force` gating, the interactive prompt flow (`y`/`n`/`a`/`q`/invalid input/EOF), non-TTY safety, baseline-hash bookkeeping, and the structural exclusion of the `team-lessons` skill from that step. `test/migrate-team-lessons-template.test.mjs` covers the team-lessons template split: the generation marker, the shipped-hash ledger and its maintainer invariants (the ledger's last entry must match `scaffold/team-lessons/` exactly, and `template-version.mjs` must match that entry's version), the functional-signature fallback for a reformatted old copy, the step ordering that keeps the marker from being placed before the generation is checked, and the guarantee that `SKILL.md` and `lessons/**` stay byte-identical through it all. `test/migrate-applies-when.test.mjs` covers the `lessons/**` `applies_when` advisory scan: files missing (or blank, or array-form) `applies_when` are named individually in the notice alongside the `AUTHORING.md`/regenerate-command guidance, a file with no parsable frontmatter block is reported as unreadable rather than as missing `applies_when`, a malformed lesson (bad `id`, empty `symptom`) never aborts the rest of `migrate()`, `--dry-run` and a real run report identical notices without moving the exit code, and the step never adds or updates anything.
+
+## Translations
+
+`README.md` is the source of truth; [`README.ja.md`](./README.ja.md) is a translation of it.
+A PR that changes `README.md` is expected to update `README.ja.md` in the same PR. When
+updating both at once isn't practical, open a follow-up issue for the translation first —
+then the English change can be merged on its own.
 
 ## License
 
